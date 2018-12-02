@@ -25,6 +25,39 @@ defmodule Day2 do
     end)
   end
 
+  def common_letters(ids) do
+    ids
+    |> Enum.reduce_while(MapSet.new(), fn id, seen ->
+      id_len = String.length(id)
+
+      case 0..(id_len - 1)
+           |> Enum.reduce_while(seen, fn n, acc ->
+             removed = remove_letter(id, n)
+             t = {n, removed}
+
+             if t in seen do
+               {:halt, removed}
+             else
+               {:cont, MapSet.put(acc, t)}
+             end
+           end) do
+        <<b::binary>> ->
+          {:halt, b}
+
+        %MapSet{} = seen ->
+          {:cont, seen}
+      end
+    end)
+  end
+
+  defp remove_letter(id, n) do
+    if n == 0 do
+      String.slice(id, (n + 1)..-1)
+    else
+      String.slice(id, 0..(n - 1)) <> String.slice(id, (n + 1)..-1)
+    end
+  end
+
   defp count_letters(binary) do
     count_letters(binary, %{})
   end
@@ -78,18 +111,42 @@ case System.argv() do
           ababab
           """)
 
-        assert checksum(io |> IO.stream(:line)) == 12
+        assert checksum(io |> IO.stream(:line) |> Stream.map(&String.trim/1)) == 12
+      end
+
+      test "common_letters" do
+        {:ok, io} =
+          StringIO.open("""
+          abcde
+          fghij
+          klmno
+          pqrst
+          fguij
+          axcye
+          wvxyz
+          """)
+
+        assert common_letters(io |> IO.stream(:line) |> Stream.map(&String.trim/1)) == "fgij"
       end
     end
 
   [input_file] ->
     File.stream!(input_file)
+    |> Stream.map(&String.trim/1)
     |> Day2.checksum()
+    |> IO.puts()
+
+  [input_file, "-2"] ->
+    File.stream!(input_file)
+    |> Stream.map(&String.trim/1)
+    |> Day2.common_letters()
     |> IO.puts()
 
   _ ->
     IO.puts("""
     Usage:
+      elixir day2.exs --test
       elixir day2.exs input_file
+      elixir day2.exs input_file -2
     """)
 end
