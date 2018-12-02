@@ -32,13 +32,12 @@ defmodule Day2 do
 
       case 0..(id_len - 1)
            |> Enum.reduce_while(seen, fn n, acc ->
-             removed = remove_letter(id, n)
-             t = {n, removed}
+             pair = convert_to_pairs(id, n)
 
-             if t in seen do
-               {:halt, removed}
+             if pair in seen do
+               {:halt, Enum.join(pair, "")}
              else
-               {:cont, MapSet.put(acc, t)}
+               {:cont, MapSet.put(acc, pair)}
              end
            end) do
         <<b::binary>> ->
@@ -50,11 +49,11 @@ defmodule Day2 do
     end)
   end
 
-  defp remove_letter(id, n) do
+  defp convert_to_pairs(id, n) do
     if n == 0 do
-      String.slice(id, (n + 1)..-1)
+      [String.slice(id, (n + 1)..-1)]
     else
-      String.slice(id, 0..(n - 1)) <> String.slice(id, (n + 1)..-1)
+      [String.slice(id, 0..(n - 1)), String.slice(id, (n + 1)..-1)]
     end
   end
 
