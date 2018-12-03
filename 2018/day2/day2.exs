@@ -1,28 +1,28 @@
 defmodule Day2 do
   def checksum(ids) do
-    {twos, threes} =
+    [twos, threes] =
       ids
       |> Stream.map(&id_ok/1)
-      |> Enum.reduce({0, 0}, fn {a, b}, {x, y} -> {a + x, b + y} end)
+      |> Enum.unzip()
+      |> Tuple.to_list()
+      |> Enum.map(fn list ->
+        list
+        |> Enum.count(& &1)
+      end)
 
     twos * threes
   end
 
   def id_ok(binary) do
-    binary
-    |> count_letters
-    |> Enum.reduce({0, 0}, fn {_k, v}, {twos, threes} = acc ->
-      case v do
-        2 ->
-          {1, threes}
+    uniques =
+      binary
+      |> String.graphemes()
+      |> Enum.sort()
+      |> Enum.chunk_by(& &1)
+      |> Enum.map(&Enum.count/1)
+      |> Enum.reduce(MapSet.new(), fn n, acc -> MapSet.put(acc, n) end)
 
-        3 ->
-          {twos, 1}
-
-        _ ->
-          acc
-      end
-    end)
+    {MapSet.member?(uniques, 2), MapSet.member?(uniques, 3)}
   end
 
   def common_letters(ids) do
@@ -56,27 +56,6 @@ defmodule Day2 do
       [String.slice(id, 0..(n - 1)), String.slice(id, (n + 1)..-1)]
     end
   end
-
-  defp count_letters(binary) do
-    count_letters(binary, %{})
-  end
-
-  defp count_letters(<<c::utf8, rest::binary>>, letter_counts) do
-    n =
-      case Map.get(letter_counts, c) do
-        nil ->
-          0
-
-        val ->
-          val
-      end
-
-    count_letters(rest, Map.put(letter_counts, c, n + 1))
-  end
-
-  defp count_letters("", letter_counts) do
-    letter_counts
-  end
 end
 
 case System.argv() do
@@ -89,13 +68,13 @@ case System.argv() do
       import Day2
 
       test "id_ok" do
-        assert id_ok("abcdef") == {0, 0}
-        assert id_ok("bababc") == {1, 1}
-        assert id_ok("abbcde") == {1, 0}
-        assert id_ok("abcccd") == {0, 1}
-        assert id_ok("aabcdd") == {1, 0}
-        assert id_ok("abcdee") == {1, 0}
-        assert id_ok("ababab") == {0, 1}
+        assert id_ok("abcdef") == {false, false}
+        assert id_ok("bababc") == {true, true}
+        assert id_ok("abbcde") == {true, false}
+        assert id_ok("abcccd") == {false, true}
+        assert id_ok("aabcdd") == {true, false}
+        assert id_ok("abcdee") == {true, false}
+        assert id_ok("ababab") == {false, true}
       end
 
       test "checksum" do
