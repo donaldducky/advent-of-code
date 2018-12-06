@@ -3,6 +3,9 @@ defmodule Day5 do
   Documentation for Day5.
   """
 
+  @offset ?a - ?A
+  defguard is_upcase_and_downcase(a, b) when abs(a - b) == @offset
+
   @doc """
   React
 
@@ -19,30 +22,20 @@ defmodule Day5 do
 
   """
   def reaction(string) when is_binary(string) do
-    regex =
-      'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-      |> Enum.reduce([], fn
-        char, acc ->
-          [[char + 32, char] | [[char, char + 32] | acc]]
-      end)
-      |> Enum.map(&String.Chars.to_string/1)
-      |> Enum.join("|")
-      |> Regex.compile()
-      |> elem(1)
+    string
+    |> String.to_charlist()
+    |> Enum.reduce([], fn
+      c, [] ->
+        [c]
 
-    replace(string, regex)
-  end
+      c, [head | tail] when is_upcase_and_downcase(c, head) ->
+        tail
 
-  def replace(string, regex) do
-    new_string =
-      string
-      |> String.replace(regex, "")
-
-    if new_string != string do
-      replace(new_string, regex)
-    else
-      string
-    end
+      c, acc ->
+        [c | acc]
+    end)
+    |> String.Chars.to_string()
+    |> String.reverse()
   end
 
   @doc """
