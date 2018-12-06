@@ -21,12 +21,14 @@ defmodule Day5 do
       "dabCBAcaDA"
 
   """
+  @spec reaction(String.t()) :: String.t()
   def reaction(string) when is_binary(string) do
     string
     |> String.to_charlist()
     |> reaction()
   end
 
+  @spec reaction(list(char())) :: String.t()
   def reaction(charlist) when is_list(charlist) do
     charlist
     |> Enum.reduce([], fn
@@ -52,6 +54,7 @@ defmodule Day5 do
       4
 
   """
+  @spec improved_reaction(String.t()) :: integer()
   def improved_reaction(string) do
     ?a..?z
     |> Enum.map(fn c ->
