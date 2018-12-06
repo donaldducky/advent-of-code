@@ -24,6 +24,11 @@ defmodule Day5 do
   def reaction(string) when is_binary(string) do
     string
     |> String.to_charlist()
+    |> reaction()
+  end
+
+  def reaction(charlist) when is_list(charlist) do
+    charlist
     |> Enum.reduce([], fn
       c, [] ->
         [c]
@@ -48,18 +53,16 @@ defmodule Day5 do
 
   """
   def improved_reaction(string) do
-    'abcdefghijklmnopqrstuvwxyz'
-    |> Enum.map(&[&1, &1 - 32])
-    |> Enum.map(&String.Chars.to_string/1)
-    |> Enum.map(fn chars_to_remove ->
-      ("[" <> chars_to_remove <> "]")
-      |> Regex.compile()
-      |> elem(1)
+    ?a..?z
+    |> Enum.map(fn c ->
+      string
+      |> String.to_charlist()
+      |> Enum.filter(fn c2 ->
+        c2 != c && c2 != c - @offset
+      end)
+      |> reaction()
+      |> String.length()
     end)
-    |> Enum.map(&String.replace(string, &1, ""))
-    |> Enum.filter(&(&1 != string))
-    |> Enum.map(&reaction/1)
-    |> Enum.map(&String.length/1)
     |> Enum.min()
   end
 end
