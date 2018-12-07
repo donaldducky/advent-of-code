@@ -21,7 +21,7 @@ defmodule Day6 do
 
   ## Examples
 
-      iex> Day6.largest_area_size([ {1, 1}, {1, 6}, {8, 3}, {3, 4}, {5, 5}, {8, 9} ])
+      iex> Day6.largest_area_size([{1, 1}, {1, 6}, {8, 3}, {3, 4}, {5, 5}, {8, 9}])
       17
 
   """
@@ -33,7 +33,7 @@ defmodule Day6 do
 
     Enum.reduce(bounds.min_x..bounds.max_x, [], fn x, acc ->
       Enum.reduce(bounds.min_y..bounds.max_y, acc, fn y, acc ->
-        min_coordinate =
+        {min_coordinate, _total_distance} =
           coords
           |> min_coordinate_distance({x, y})
 
@@ -54,6 +54,46 @@ defmodule Day6 do
     |> Enum.map(fn {k, v} -> {k, length(v)} end)
     |> Enum.max_by(fn {_k, l} -> l end)
     |> elem(1)
+  end
+
+  @doc """
+  Calculate the number of points within a distance closest to all other coordinates.
+
+  ..........
+  .A........
+  ..........
+  ...###..C.
+  ..#D###...
+  ..###E#...
+  .B.###....
+  ..........
+  ..........
+  ........F.
+
+  ## Examples
+
+      iex> Day6.within_region_count([{1, 1}, {1, 6}, {8, 3}, {3, 4}, {5, 5}, {8, 9}], 32)
+      16
+
+  """
+  @spec within_region_count(coordinate_list, pos_integer) :: integer
+  def within_region_count(coords, max_distance) do
+    bounds =
+      coords
+      |> calculate_bounds()
+
+    Enum.reduce(bounds.min_x..bounds.max_x, [], fn x, acc ->
+      Enum.reduce(bounds.min_y..bounds.max_y, acc, fn y, acc ->
+        {min_coordinate, total_distance} =
+          coords
+          |> min_coordinate_distance({x, y})
+
+        [{{x, y}, min_coordinate, total_distance} | acc]
+      end)
+    end)
+    |> Enum.map(fn {_, _, d} -> d end)
+    |> Enum.filter(&(&1 < max_distance))
+    |> Enum.count()
   end
 
   @doc """
@@ -82,26 +122,34 @@ defmodule Day6 do
   ## Examples
 
       iex> Day6.min_coordinate_distance([{5, 5}, {5, 1}, {0, 0}, {1, 1}], {1, 1})
-      {1, 1}
+      {{1, 1}, 8 + 4 + 2 + 0}
 
       iex> Day6.min_coordinate_distance([{1, 1}, {5, 5}], {5, 1})
-      :tie
+      {:tie, 4 + 4}
   """
-  @spec min_coordinate_distance(coordinate_list, coordinate) :: coordinate | :tie
+  @spec min_coordinate_distance(coordinate_list, coordinate) :: {coordinate | :tie, pos_integer}
   def min_coordinate_distance(coords, {x, y}) do
-    coords
-    |> Stream.map(fn coord -> {coord, distance(coord, {x, y})} end)
-    |> Enum.reduce(fn
-      {_c, d} = pair, {_acc_c, acc_d} when d < acc_d ->
-        pair
+    coord_distance_pairs =
+      coords
+      |> Enum.map(fn coord -> {coord, distance(coord, {x, y})} end)
 
-      {_c, d}, {_acc_c, acc_d} when d == acc_d ->
-        {:tie, d}
+    min_coordinate =
+      coord_distance_pairs
+      |> Enum.reduce(fn
+        {_c, d} = pair, {_acc_c, acc_d} when d < acc_d ->
+          pair
 
-      _pair, acc ->
-        acc
-    end)
-    |> elem(0)
+        {_c, d}, {_acc_c, acc_d} when d == acc_d ->
+          {:tie, d}
+
+        _pair, acc ->
+          acc
+      end)
+      |> elem(0)
+
+    total_distance = coord_distance_pairs |> Enum.map(fn {_c, d} -> d end) |> Enum.sum()
+
+    {min_coordinate, total_distance}
   end
 
   @doc """
