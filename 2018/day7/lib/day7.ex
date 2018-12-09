@@ -79,7 +79,7 @@ defmodule Day7 do
 
     deps_map = Map.delete(deps_map, next)
 
-    step(input, [next], deps_map, next_map, candidates)
+    step([next], deps_map, next_map, candidates)
   end
 
   def step(acc) do
@@ -88,55 +88,62 @@ defmodule Day7 do
     |> String.Chars.to_string()
   end
 
-  def step(input, acc, deps_map, next_map, candidates) do
-    if deps_map |> Enum.count() == 0 && next_map |> Enum.count() == 0 do
-      step([candidates |> Enum.take(1) | acc])
-    else
-      filtered_candidates =
-        candidates
-        |> Enum.filter(fn a -> !Map.has_key?(next_map, a) end)
+  def step(acc, deps_map, next_map, candidates)
+      when map_size(deps_map) == 0 and map_size(next_map) == 0 do
+    step([candidates |> Enum.take(1) | acc])
+  end
 
-      next =
-        filtered_candidates
-        |> Enum.min()
+  def step(acc, deps_map, next_map, candidates) do
+    filtered_candidates =
+      candidates
+      |> Enum.filter(fn a -> !Map.has_key?(next_map, a) end)
 
-      next_letters =
-        deps_map
-        |> Map.get(next)
+    next =
+      filtered_candidates
+      |> Enum.min()
 
-      next_map =
-        next_letters
-        |> Enum.reduce(next_map, fn a, acc ->
-          # remove next letter from each of the dependencies
-          deps =
-            Map.get(acc, a)
-            |> MapSet.delete(next)
+    next_letters =
+      deps_map
+      |> Map.get(next)
 
-          if MapSet.size(deps) == 0 do
-            Map.delete(acc, a)
-          else
-            Map.put(acc, a, deps)
-          end
-        end)
+    next_map =
+      next_letters
+      |> Enum.reduce(next_map, fn a, acc ->
+        # remove next letter from each of the dependencies
+        deps =
+          Map.get(acc, a)
+          |> MapSet.delete(next)
 
-      candidates =
-        candidates
-        |> Enum.reject(fn a -> a == next end)
+        if MapSet.size(deps) == 0 do
+          Map.delete(acc, a)
+        else
+          Map.put(acc, a, deps)
+        end
+      end)
 
-      candidates =
-        Map.get(deps_map, next)
-        |> Enum.reduce(candidates, fn a, acc -> [a | acc] end)
-        |> Enum.uniq()
-        |> Enum.sort()
+    candidates =
+      candidates
+      |> Enum.reject(fn a -> a == next end)
 
-      deps_map = Map.delete(deps_map, next)
+    candidates =
+      Map.get(deps_map, next)
+      |> Enum.reduce(candidates, fn a, acc -> [a | acc] end)
+      |> Enum.uniq()
+      |> Enum.sort()
 
-      step(input, [next | acc], deps_map, next_map, candidates)
-    end
+    deps_map = Map.delete(deps_map, next)
+
+    step([next | acc], deps_map, next_map, candidates)
   end
 
   @doc """
   First half of exercise
+
+  ## Examples
+
+      iex> Day7.first_half()
+      "BCADPVTJFZNRWXHEKSQLUYGMIO"
+
   """
   def first_half() do
     read_input()
