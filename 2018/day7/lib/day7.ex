@@ -19,6 +19,17 @@ defmodule Day7 do
       ...> ])
       "CABDFE"
 
+  #     iex> Day7.step_order([
+  #     ...> {?C, ?A},
+  #     ...> {?C, ?F},
+  #     ...> {?A, ?B},
+  #     ...> {?A, ?D},
+  #     ...> {?B, ?E},
+  #     ...> {?D, ?E},
+  #     ...> {?F, ?E},
+  #     ...> ], 2, 0)
+  #     "CABFDE"
+
   """
   def step_order(input) do
     all_letters =
@@ -45,95 +56,69 @@ defmodule Day7 do
       all_letters
       |> Enum.filter(fn a -> !Map.has_key?(next_map, a) end)
 
-    next =
-      candidates
-      |> Enum.min()
+    state = %{
+      step_order: [],
+      deps_map: deps_map,
+      next_map: next_map,
+      candidates: candidates
+    }
 
-    next_letters =
-      deps_map
-      |> Map.get(next)
+    all_letters
+    |> Enum.reduce(state, fn
+      _letter, %{step_order: step_order, deps_map: deps_map, candidates: candidates}
+      when map_size(deps_map) == 0 ->
+        next =
+          candidates
+          |> Enum.min()
 
-    next_map =
-      next_letters
-      |> Enum.reduce(next_map, fn a, acc ->
-        # remove next letter from each of the dependencies
-        deps =
-          Map.get(acc, a)
-          |> MapSet.delete(next)
+        [next | step_order]
+        |> Enum.reverse()
+        |> String.Chars.to_string()
 
-        if MapSet.size(deps) == 0 do
-          Map.delete(acc, a)
-        else
-          Map.put(acc, a, deps)
-        end
-      end)
+      _letter,
+      %{step_order: step_order, deps_map: deps_map, next_map: next_map, candidates: candidates} =
+          acc ->
+        next =
+          candidates
+          |> Enum.filter(fn a -> !Map.has_key?(next_map, a) end)
+          |> Enum.min()
 
-    candidates =
-      candidates
-      |> Enum.reject(fn a -> a == next end)
+        next_letters =
+          deps_map
+          |> Map.get(next)
 
-    candidates =
-      Map.get(deps_map, next)
-      |> Enum.reduce(candidates, fn a, acc -> [a | acc] end)
-      |> Enum.sort()
+        next_map =
+          next_letters
+          |> Enum.reduce(next_map, fn a, acc ->
+            # remove next letter from each of the dependencies
+            deps =
+              Map.get(acc, a)
+              |> MapSet.delete(next)
 
-    deps_map = Map.delete(deps_map, next)
+            if MapSet.size(deps) == 0 do
+              Map.delete(acc, a)
+            else
+              Map.put(acc, a, deps)
+            end
+          end)
 
-    step([next], deps_map, next_map, candidates)
-  end
+        candidates =
+          candidates
+          |> Enum.reject(fn a -> a == next end)
 
-  def step(acc) do
-    acc
-    |> Enum.reverse()
-    |> String.Chars.to_string()
-  end
+        candidates =
+          Map.get(deps_map, next)
+          |> Enum.reduce(candidates, fn a, acc -> [a | acc] end)
+          |> Enum.sort()
 
-  def step(acc, deps_map, next_map, candidates)
-      when map_size(deps_map) == 0 and map_size(next_map) == 0 do
-    step([candidates |> Enum.take(1) | acc])
-  end
+        deps_map = Map.delete(deps_map, next)
 
-  def step(acc, deps_map, next_map, candidates) do
-    filtered_candidates =
-      candidates
-      |> Enum.filter(fn a -> !Map.has_key?(next_map, a) end)
-
-    next =
-      filtered_candidates
-      |> Enum.min()
-
-    next_letters =
-      deps_map
-      |> Map.get(next)
-
-    next_map =
-      next_letters
-      |> Enum.reduce(next_map, fn a, acc ->
-        # remove next letter from each of the dependencies
-        deps =
-          Map.get(acc, a)
-          |> MapSet.delete(next)
-
-        if MapSet.size(deps) == 0 do
-          Map.delete(acc, a)
-        else
-          Map.put(acc, a, deps)
-        end
-      end)
-
-    candidates =
-      candidates
-      |> Enum.reject(fn a -> a == next end)
-
-    candidates =
-      Map.get(deps_map, next)
-      |> Enum.reduce(candidates, fn a, acc -> [a | acc] end)
-      |> Enum.uniq()
-      |> Enum.sort()
-
-    deps_map = Map.delete(deps_map, next)
-
-    step([next | acc], deps_map, next_map, candidates)
+        acc
+        |> Map.put(:deps_map, deps_map)
+        |> Map.put(:next_map, next_map)
+        |> Map.put(:candidates, candidates)
+        |> Map.put(:step_order, [next | step_order])
+    end)
   end
 
   @doc """
