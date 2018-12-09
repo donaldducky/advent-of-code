@@ -28,15 +28,13 @@ defmodule Day8 do
   end
 
   def parse_node(input) do
-    sum = 0
-
     {[num_children, num_metadata], input} =
       input
       |> Enum.split(2)
 
     {input, sum} =
       List.duplicate(0, num_children)
-      |> Enum.reduce({input, sum}, fn _, {input, sum} ->
+      |> Enum.reduce({input, 0}, fn _, {input, sum} ->
         {input, sum2} = parse_node(input)
         {input, sum + sum2}
       end)
@@ -54,9 +52,73 @@ defmodule Day8 do
     end
   end
 
+  @doc """
+  Calculate value of the root node based on a couple of rules.
+
+  If a node has no children, the value is sum of metadata.
+  If a node has children, the metadata entries reference the children and value is summed.
+  If a node references a child that does not exist, the value is 0 for that child.
+
+  ## Examples
+
+      iex> Day8.root_node_value([2, 3, 0, 3, 10, 11, 12, 1, 1, 0, 1, 99, 2, 1, 1, 2])
+      66
+
+  """
+  def root_node_value(input) do
+    parse_node_value(input)
+  end
+
+  def parse_node_value(input) do
+    {[num_children, num_metadata], input} =
+      input
+      |> Enum.split(2)
+
+    [num_children, num_metadata]
+
+    {input, values} =
+      List.duplicate(0, num_children)
+      |> Enum.reduce({input, []}, fn _, {input, values} ->
+        {input, value} = parse_node_value(input)
+
+        {input, [value | values]}
+      end)
+
+    values =
+      values
+      |> Enum.reverse()
+
+    {metadata, input} =
+      input
+      |> Enum.split(num_metadata)
+
+    sum =
+      if num_children == 0 do
+        metadata |> Enum.sum()
+      else
+        metadata
+        |> Enum.reduce(0, fn i, sum ->
+          case values |> Enum.at(i - 1) do
+            nil -> sum
+            v -> sum + v
+          end
+        end)
+      end
+
+    case input do
+      [] -> sum
+      _ -> {input, sum}
+    end
+  end
+
   def first_half() do
     read_input()
     |> metadata_sum()
+  end
+
+  def second_half() do
+    read_input()
+    |> root_node_value()
   end
 
   @spec read_input() :: Enumerable.t()
