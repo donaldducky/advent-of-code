@@ -17,21 +17,23 @@ defmodule Day7 do
       ...> {?D, ?E},
       ...> {?F, ?E},
       ...> ])
-      "CABDFE"
+      {"CABDFE", 21}
 
-  #     iex> Day7.step_order([
-  #     ...> {?C, ?A},
-  #     ...> {?C, ?F},
-  #     ...> {?A, ?B},
-  #     ...> {?A, ?D},
-  #     ...> {?B, ?E},
-  #     ...> {?D, ?E},
-  #     ...> {?F, ?E},
-  #     ...> ], 2, 0)
-  #     "CABFDE"
+      iex> Day7.step_order([
+      ...> {?C, ?A},
+      ...> {?C, ?F},
+      ...> {?A, ?B},
+      ...> {?A, ?D},
+      ...> {?B, ?E},
+      ...> {?D, ?E},
+      ...> {?F, ?E},
+      ...> ], 2, 0)
+      {"CABFDE", 15}
 
   """
-  def step_order(input) do
+  def step_order(input), do: step_order(input, 1, 0)
+
+  def step_order(input, worker_count, work_seconds_base) do
     all_letters =
       input
       |> Enum.reduce(MapSet.new(), fn {a, b}, acc ->
@@ -60,28 +62,74 @@ defmodule Day7 do
       step_order: [],
       deps_map: deps_map,
       next_map: next_map,
-      candidates: candidates
+      candidates: candidates,
+      workers: [],
+      total_work_time: 0
     }
 
     all_letters
     |> Enum.reduce(state, fn
-      _letter, %{step_order: step_order, deps_map: deps_map, candidates: candidates}
+      _letter,
+      %{
+        step_order: step_order,
+        deps_map: deps_map,
+        candidates: candidates,
+        total_work_time: total_work_time
+      }
       when map_size(deps_map) == 0 ->
         next =
           candidates
           |> Enum.min()
 
-        [next | step_order]
-        |> Enum.reverse()
-        |> String.Chars.to_string()
+        steps =
+          [next | step_order]
+          |> Enum.reverse()
+          |> String.Chars.to_string()
+
+        total_work_time = total_work_time + work_seconds_base + next - 64
+
+        {steps, total_work_time}
 
       _letter,
-      %{step_order: step_order, deps_map: deps_map, next_map: next_map, candidates: candidates} =
-          acc ->
-        next =
+      %{
+        step_order: step_order,
+        deps_map: deps_map,
+        next_map: next_map,
+        candidates: candidates,
+        workers: workers,
+        total_work_time: total_work_time
+      } = acc ->
+        filtered_candidates =
           candidates
           |> Enum.filter(fn a -> !Map.has_key?(next_map, a) end)
-          |> Enum.min()
+
+        {workers, candidates} =
+          filtered_candidates
+          |> Enum.reduce_while({workers, candidates}, fn
+            _, {workers, candidates} when length(workers) == worker_count ->
+              {:halt, {workers, candidates}}
+
+            letter, {workers, candidates} ->
+              # letter should be something like ?A == 65, we subtract 64 to set A..Z to 1..26
+              work_time = work_seconds_base + letter - 64
+
+              candidates =
+                candidates
+                |> Enum.reject(&(&1 == letter))
+
+              {:cont, {[{letter, work_time} | workers], candidates}}
+          end)
+
+        {next, last_ttl} =
+          workers
+          |> Enum.min_by(fn {_, ttl} -> ttl end)
+
+        total_work_time = total_work_time + last_ttl
+
+        workers =
+          workers
+          |> Enum.reject(fn {letter, _ttl} -> letter == next end)
+          |> Enum.map(fn {letter, ttl} -> {letter, ttl - last_ttl} end)
 
         next_letters =
           deps_map
@@ -103,13 +151,10 @@ defmodule Day7 do
           end)
 
         candidates =
-          candidates
-          |> Enum.reject(fn a -> a == next end)
-
-        candidates =
-          Map.get(deps_map, next)
-          |> Enum.reduce(candidates, fn a, acc -> [a | acc] end)
+          next_letters
+          |> Enum.into(candidates)
           |> Enum.sort()
+          |> Enum.uniq()
 
         deps_map = Map.delete(deps_map, next)
 
@@ -118,6 +163,8 @@ defmodule Day7 do
         |> Map.put(:next_map, next_map)
         |> Map.put(:candidates, candidates)
         |> Map.put(:step_order, [next | step_order])
+        |> Map.put(:workers, workers)
+        |> Map.put(:total_work_time, total_work_time)
     end)
   end
 
@@ -133,6 +180,13 @@ defmodule Day7 do
   def first_half() do
     read_input()
     |> step_order()
+    |> elem(0)
+  end
+
+  def second_half() do
+    read_input()
+    |> step_order(5, 60)
+    |> elem(1)
   end
 
   @spec read_input() :: Enumerable.t()
