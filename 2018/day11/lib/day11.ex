@@ -10,52 +10,79 @@ defmodule Day11 do
 
       iex> Day11.largest_power_grid(18)
       "33,45"
+
       iex> Day11.largest_power_grid(42)
       "21,61"
 
   """
   def largest_power_grid(serial_number) do
-    Enum.reduce(1..300, {%{}, %{coordinate: nil, grid_power_level: 0}}, fn y, power_levels ->
-      Enum.reduce(1..300, power_levels, fn x, {power_levels, current_max} ->
-        power_levels =
-          power_levels
-          |> Map.put({x, y}, power_level(x, y, serial_number))
-
-        current_max = calculate_grid_power({x, y}, power_levels, current_max)
-
-        {power_levels, current_max}
-      end)
-    end)
-    |> elem(1)
-    |> Map.get(:coordinate)
-    |> Tuple.to_list()
-    |> Enum.join(",")
+    largest_power_grid(serial_number, 3, 3)
   end
 
-  def calculate_grid_power(
-        {x, y},
-        power_levels,
-        %{grid_power_level: current_power_level} = current_best
-      )
-      when x > 2 and y > 2 do
-    cx = x - 2
-    cy = y - 2
+  def largest_power_grid(serial_number, min_grid_size, max_grid_size) do
+    max_x = 300
+    max_y = 300
 
-    power_level =
-      Enum.reduce(cx..x, 0, fn x, power_level ->
-        Enum.reduce(cy..y, power_level, fn y, power_level ->
-          power_level + Map.get(power_levels, {x, y})
+    state = {%{}, %{coordinate: {0, 0, 0}, grid_power_level: 0}}
+
+    {_, %{coordinate: {x, y, d}}} =
+      1..max_grid_size
+      |> Enum.reduce(state, fn depth, acc ->
+        depth |> IO.inspect(label: "depth")
+
+        Enum.reduce((max_y - depth + 1)..1, acc, fn y, acc ->
+          Enum.reduce((max_x - depth + 1)..1, acc, fn x,
+                                                      {power_levels,
+                                                       %{grid_power_level: current_max} =
+                                                         current_best} ->
+            power_levels = calculate_power_levels({x, y}, power_levels, depth, serial_number)
+
+            current_best =
+              if depth >= min_grid_size and depth <= max_grid_size do
+                power = power_levels |> Map.get({x, y, depth})
+
+                if power > current_max do
+                  %{coordinate: {x, y, depth}, grid_power_level: power}
+                else
+                  current_best
+                end
+              else
+                current_best
+              end
+
+            {power_levels, current_best}
+          end)
         end)
       end)
 
-    if power_level > current_power_level do
-      %{coordinate: {cx, cy}, grid_power_level: power_level}
+    if min_grid_size == max_grid_size do
+      [x, y] |> Enum.join(",")
     else
-      current_best
+      [x, y, d] |> Enum.join(",")
     end
   end
 
-  def calculate_grid_power(_, _power_levels, current_best), do: current_best
+  def calculate_power_levels({x, y}, power_levels, depth, serial_number) when depth == 1 do
+    power_levels |> Map.put({x, y, depth}, power_level(x, y, serial_number))
+  end
+
+  # 299, 299, 2 -> [{299, 299, 1}, {299, 300, 1}, {300, 299, 1}, {300, 300, 1}]
+  # 298, 298, 3 -> [{298, 298, 1}, {299, 298, 1}, {300, 298, 1}, {298, 299, 1}, {298, 300, 1}, {299, 299, 2}]
+  def calculate_power_levels({x, y}, power_levels, depth, _serial_number) do
+    prev_grid_sum = Map.get(power_levels, {x + 1, y + 1, depth - 1})
+
+    row_sum =
+      (x + 1)..(x + depth - 1)
+      |> Enum.reduce(0, fn x2, sum -> sum + Map.get(power_levels, {x2, y, 1}) end)
+
+    col_sum =
+      (y + 1)..(y + depth - 1)
+      |> Enum.reduce(0, fn y2, sum -> sum + Map.get(power_levels, {x, y2, 1}) end)
+
+    power_level = Map.get(power_levels, {x, y, 1}) + prev_grid_sum + row_sum + col_sum
+
+    power_levels |> Map.put({x, y, depth}, power_level)
+  end
 
   @doc """
   ## Examples
@@ -84,5 +111,9 @@ defmodule Day11 do
 
   def first_half() do
     largest_power_grid(1309)
+  end
+
+  def second_half() do
+    largest_power_grid(1309, 1, 300)
   end
 end
