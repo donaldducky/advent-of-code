@@ -7,6 +7,10 @@ defmodule Day12 do
   Sum pots after 20 iterations.
   """
   def sum_pots(input) do
+    sum_pots(input, 20)
+  end
+
+  def sum_pots(input, generations) do
     {initial_state, rules} =
       input
       |> parse()
@@ -19,11 +23,34 @@ defmodule Day12 do
       |> Enum.map(fn {_a, i} -> i end)
       |> Enum.into(MapSet.new())
 
-    1..20
-    |> Enum.reduce(initial_state, fn _generation, state ->
-      step(state, rules)
-    end)
-    |> Enum.sum()
+    {_end_state, generation, sum, {diff_value, _diff_count}} =
+      1..generations
+      |> Enum.reduce_while({initial_state, 0, 0, {0, 0}}, fn generation,
+                                                             {state, _generation, prev_sum,
+                                                              {prev_diff, diff_count}} ->
+        s = step(state, rules)
+        sum = s |> Enum.sum()
+        diff = sum - prev_sum
+
+        {prev_diff, diff_count} =
+          if diff != prev_diff do
+            {diff, 1}
+          else
+            {prev_diff, diff_count + 1}
+          end
+
+        if diff_count > 10 do
+          {:halt, {s, generation, sum, {prev_diff, diff_count}}}
+        else
+          {:cont, {s, generation, sum, {prev_diff, diff_count}}}
+        end
+      end)
+
+    if generations == generation do
+      sum
+    else
+      sum + (generations - generation) * diff_value
+    end
   end
 
   def step(state, rules) do
@@ -42,7 +69,7 @@ defmodule Day12 do
       <<_::utf8, next_string::binary>> = current_string
 
       new_state =
-        if Map.get(rules, current_string) == "#" do
+        if MapSet.member?(rules, current_string) do
           new_state |> MapSet.put(i)
         else
           new_state |> MapSet.delete(i)
@@ -65,7 +92,9 @@ defmodule Day12 do
       rules
       |> Enum.drop(1)
       |> Enum.map(&String.split(&1, " => "))
-      |> Enum.reduce(%{}, fn [key, pot_state], acc -> Map.put(acc, key, pot_state) end)
+      |> Enum.filter(fn [_a, b] -> b == "#" end)
+      |> Enum.map(fn [a, _b] -> a end)
+      |> Enum.into(MapSet.new())
 
     {initial_state, rules}
   end
@@ -73,6 +102,11 @@ defmodule Day12 do
   def first_half() do
     read_input()
     |> sum_pots()
+  end
+
+  def second_half() do
+    read_input()
+    |> sum_pots(50_000_000_000)
   end
 
   def read_input() do
