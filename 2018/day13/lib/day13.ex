@@ -28,44 +28,67 @@ defmodule Day13 do
     step(track, carts, 0)
   end
 
-  def parse_input(input) do
-    input
-    |> Enum.reduce({%{}, %{}}, fn {line, y}, acc ->
-      line
-      |> String.to_charlist()
+  @doc ~S"""
+  Last cart position
+
+  ## Examples
+
+      iex> File.read!("test2.txt") |> String.trim_trailing() |> String.split("\n") |> Day13.last_pos()
+      "6,4"
+
+  """
+  def last_pos(input) do
+    {track, carts} =
+      input
       |> Enum.with_index()
-      |> Enum.reduce(acc, fn
-        {?\s, _x}, acc ->
-          acc
+      |> parse_input()
 
-        {c, x}, {track, carts} when c == ?/ or c == ?\\ or c == ?| or c == ?- or c == ?+ ->
-          {Map.put(track, {x, y}, c), carts}
+    step_and_remove(track, carts)
+  end
 
-        {c, x}, {track, carts} when c == ?> ->
-          track = Map.put(track, {x, y}, ?-)
-          carts = Map.put(carts, {x, y}, {:east, :left})
-          {track, carts}
+  def step_and_remove(track, carts) do
+    {carts, _crashed} =
+      carts
+      |> Enum.reduce({carts, MapSet.new()}, fn {{x, y} = pos, {direction, next_turn}},
+                                               {carts, crashed} ->
+        carts = carts |> Map.delete(pos)
 
-        {c, x}, {track, carts} when c == ?< ->
-          track = Map.put(track, {x, y}, ?-)
-          carts = Map.put(carts, {x, y}, {:west, :left})
-          {track, carts}
+        if Map.get(crashed, pos) == nil do
+          {vx, vy} = Map.get(@dir_to_coord, direction)
+          next_pos = {x + vx, y + vy}
 
-        {c, x}, {track, carts} when c == ?^ ->
-          track = Map.put(track, {x, y}, ?|)
-          carts = Map.put(carts, {x, y}, {:north, :left})
-          {track, carts}
+          if Map.has_key?(carts, next_pos) do
+            # something is there, crashed
+            crashed
+            |> MapSet.put(next_pos)
+            |> MapSet.put(pos)
 
-        {c, x}, {track, carts} when c == ?v ->
-          track = Map.put(track, {x, y}, ?|)
-          carts = Map.put(carts, {x, y}, {:south, :left})
-          {track, carts}
+            carts = Map.delete(carts, next_pos)
 
-        {c, x}, _acc ->
-          IO.inspect(c, label: "unknown char at #{x} #{y}")
-          raise "error"
+            {carts, crashed}
+          else
+            track_piece = Map.get(track, next_pos)
+            heading = get_new_heading({direction, next_turn}, track_piece)
+
+            carts = carts |> Map.put(next_pos, heading)
+
+            {carts, crashed}
+          end
+        else
+          {carts, crashed}
+        end
       end)
-    end)
+
+    if map_size(carts) <= 1 do
+      carts
+      |> Map.to_list()
+      |> Enum.at(0)
+      |> elem(0)
+      |> Tuple.to_list()
+      |> Enum.join(",")
+    else
+      step_and_remove(track, carts)
+    end
   end
 
   @doc """
@@ -180,6 +203,46 @@ defmodule Day13 do
     end
   end
 
+  def parse_input(input) do
+    input
+    |> Enum.reduce({%{}, %{}}, fn {line, y}, acc ->
+      line
+      |> String.to_charlist()
+      |> Enum.with_index()
+      |> Enum.reduce(acc, fn
+        {?\s, _x}, acc ->
+          acc
+
+        {c, x}, {track, carts} when c == ?/ or c == ?\\ or c == ?| or c == ?- or c == ?+ ->
+          {Map.put(track, {x, y}, c), carts}
+
+        {c, x}, {track, carts} when c == ?> ->
+          track = Map.put(track, {x, y}, ?-)
+          carts = Map.put(carts, {x, y}, {:east, :left})
+          {track, carts}
+
+        {c, x}, {track, carts} when c == ?< ->
+          track = Map.put(track, {x, y}, ?-)
+          carts = Map.put(carts, {x, y}, {:west, :left})
+          {track, carts}
+
+        {c, x}, {track, carts} when c == ?^ ->
+          track = Map.put(track, {x, y}, ?|)
+          carts = Map.put(carts, {x, y}, {:north, :left})
+          {track, carts}
+
+        {c, x}, {track, carts} when c == ?v ->
+          track = Map.put(track, {x, y}, ?|)
+          carts = Map.put(carts, {x, y}, {:south, :left})
+          {track, carts}
+
+        {c, x}, _acc ->
+          IO.inspect(c, label: "unknown char at #{x} #{y}")
+          raise "error"
+      end)
+    end)
+  end
+
   @doc """
 
   ## Examples
@@ -193,5 +256,14 @@ defmodule Day13 do
     |> String.trim_trailing()
     |> String.split("\n")
     |> detect_crash()
+  end
+
+  @doc """
+  """
+  def second_half() do
+    File.read!("input.txt")
+    |> String.trim_trailing()
+    |> String.split("\n")
+    |> last_pos()
   end
 end
