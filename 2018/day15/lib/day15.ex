@@ -63,45 +63,49 @@ defmodule Day15 do
       |> String.split("\n", trim: true)
       |> parse_map()
 
+    {state, rounds_completed} = battle(state)
+
+    # which team won?
+    goblins = Map.get(state, :goblins)
+    elves = Map.get(state, :elves)
+
+    unit_positions =
+      if MapSet.size(goblins) == 0 do
+        elves
+      else
+        goblins
+      end
+
+    # state |> IO.inspect(label: "end state")
+    # state |> draw_map(rounds_completed)
+
+    hp_sum =
+      unit_positions
+      |> Enum.map(fn pos ->
+        {_type, hp, _id} = Map.get(state, pos)
+        hp
+      end)
+      |> Enum.sum()
+
+    # |> IO.inspect(label: "sum")
+
+    hp_sum * rounds_completed
+  end
+
+  def battle(state) do
     Stream.iterate(1, &(&1 + 1))
     |> Enum.reduce_while(state, fn rounds_completed, state ->
       state = combat_round(state)
 
       if Map.get(state, :ended) do
-        # which team won?
-        goblins = Map.get(state, :goblins)
-        elves = Map.get(state, :elves)
-
-        unit_positions =
-          if MapSet.size(goblins) == 0 do
-            elves
-          else
-            goblins
-          end
-
-        # state |> IO.inspect(label: "end state")
-        # state |> draw_map(rounds_completed)
-
-        hp_sum =
-          unit_positions
-          |> Enum.map(fn pos ->
-            {_type, hp, _id} = Map.get(state, pos)
-            hp
-          end)
-          |> Enum.sum()
-
-        # |> IO.inspect(label: "sum")
-
-        sum =
+        full_rounds =
           if Map.get(state, :full_round) do
-            # rounds_completed |> IO.inspect(label: "round")
-            hp_sum * rounds_completed
+            rounds_completed
           else
-            # (rounds_completed - 1) |> IO.inspect(label: "round")
-            hp_sum * (rounds_completed - 1)
+            rounds_completed - 1
           end
 
-        {:halt, sum}
+        {:halt, {state, full_rounds}}
       else
         {:cont, state}
       end
@@ -149,8 +153,15 @@ defmodule Day15 do
         |> Map.put(:full_round, false)
 
       true ->
-        {_, _, id} = Map.get(state, unit_position)
+        {type, _, id} = Map.get(state, unit_position)
         actions_performed = Map.get(state, :actions_performed)
+
+        attack_power =
+          if type == :elf do
+            Map.get(state, :elf_attack_power, 3)
+          else
+            3
+          end
 
         if MapSet.member?(actions_performed, id) do
           state
@@ -169,11 +180,11 @@ defmodule Day15 do
                 if adjacent_enemy == nil do
                   state
                 else
-                  attack_enemy(state, adjacent_enemy)
+                  attack_enemy(state, adjacent_enemy, attack_power)
                 end
             end
           else
-            attack_enemy(state, adjacent_enemy)
+            attack_enemy(state, adjacent_enemy, attack_power)
           end
         end
     end
@@ -386,12 +397,12 @@ defmodule Day15 do
     |> Enum.find(& &1)
   end
 
-  def attack_enemy(state, {hp, y, x, type, id}) when hp > 3 do
+  def attack_enemy(state, {hp, y, x, type, id}, attack_power) when hp - attack_power > 0 do
     # {hp, x, y, type} |> IO.inspect(label: "attacked")
-    Map.put(state, {x, y}, {type, hp - 3, id})
+    Map.put(state, {x, y}, {type, hp - attack_power, id})
   end
 
-  def attack_enemy(state, {hp, y, x, type, _id}) when hp <= 3 do
+  def attack_enemy(state, {hp, y, x, type, _id}, attack_power) when hp - attack_power <= 0 do
     # {hp, x, y, type} |> IO.inspect(label: "killed")
     state = Map.delete(state, {x, y})
 
