@@ -44,16 +44,17 @@ defmodule Day15Test do
       {2, 3} => :wall,
       {4, 3} => :wall,
       {4, 4} => :wall,
-      {2, 1} => {:goblin, 200},
-      {5, 2} => {:goblin, 200},
-      {5, 3} => {:goblin, 200},
-      {3, 4} => {:goblin, 200},
-      {4, 2} => {:elf, 200},
-      {5, 4} => {:elf, 200},
+      {2, 1} => {:goblin, 200, 1},
+      {5, 2} => {:goblin, 200, 3},
+      {5, 3} => {:goblin, 200, 4},
+      {3, 4} => {:goblin, 200, 5},
+      {4, 2} => {:elf, 200, 2},
+      {5, 4} => {:elf, 200, 6},
       :goblins => MapSet.new([{2, 1}, {5, 2}, {5, 3}, {3, 4}]),
       :elves => MapSet.new([{4, 2}, {5, 4}]),
       :width => 7,
-      :height => 7
+      :height => 7,
+      :current_id => 7
     }
 
     assert parse_map(map) == expected
@@ -109,8 +110,8 @@ defmodule Day15Test do
     from = {2, 1}
 
     state = %{
-      {2, 1} => {:elf, 200},
-      {4, 3} => {:goblin, 200},
+      {2, 1} => {:elf, 200, 1},
+      {4, 3} => {:goblin, 200, 2},
       :goblins => MapSet.new([{4, 3}]),
       :elves => MapSet.new([{2, 1}]),
       :width => 5,
@@ -120,15 +121,15 @@ defmodule Day15Test do
     goals = MapSet.new([{4, 3}])
 
     expected = %{
-      {3, 1} => {:elf, 200},
-      {4, 3} => {:goblin, 200},
+      {3, 1} => {:elf, 200, 1},
+      {4, 3} => {:goblin, 200, 2},
       :goblins => MapSet.new([{4, 3}]),
       :elves => MapSet.new([{3, 1}]),
       :width => 5,
       :height => 5
     }
 
-    assert move_unit(from, state, goals) == expected
+    assert move_unit(from, state, goals) == {expected, {3, 1}}
   end
 
   test "find_adjacent_enemies" do
@@ -143,21 +144,23 @@ defmodule Day15Test do
     unit_position = {2, 1}
 
     state = %{
-      {2, 1} => {:elf, 200},
-      {4, 3} => {:goblin, 200},
+      {2, 1} => {:elf, 200, 1},
+      {4, 3} => {:goblin, 200, 2},
       :goblins => MapSet.new([{4, 3}]),
       :elves => MapSet.new([{2, 1}]),
       :width => 5,
-      :height => 5
+      :height => 5,
+      :actions_performed => MapSet.new()
     }
 
     expected = %{
-      {3, 1} => {:elf, 200},
-      {4, 3} => {:goblin, 200},
+      {3, 1} => {:elf, 200, 1},
+      {4, 3} => {:goblin, 200, 2},
       :goblins => MapSet.new([{4, 3}]),
       :elves => MapSet.new([{3, 1}]),
       :width => 5,
-      :height => 5
+      :height => 5,
+      :actions_performed => MapSet.new([1])
     }
 
     assert perform_action(unit_position, state) == expected
@@ -167,21 +170,23 @@ defmodule Day15Test do
     unit_position = {2, 3}
 
     state = %{
-      {2, 3} => {:elf, 200},
-      {3, 3} => {:goblin, 200},
+      {2, 3} => {:elf, 200, 1},
+      {3, 3} => {:goblin, 200, 2},
       :goblins => MapSet.new([{3, 3}]),
       :elves => MapSet.new([{2, 3}]),
       :width => 5,
-      :height => 5
+      :height => 5,
+      :actions_performed => MapSet.new()
     }
 
     expected = %{
-      {2, 3} => {:elf, 200},
-      {3, 3} => {:goblin, 197},
+      {2, 3} => {:elf, 200, 1},
+      {3, 3} => {:goblin, 197, 2},
       :goblins => MapSet.new([{3, 3}]),
       :elves => MapSet.new([{2, 3}]),
       :width => 5,
-      :height => 5
+      :height => 5,
+      :actions_performed => MapSet.new([1])
     }
 
     assert perform_action(unit_position, state) == expected
@@ -224,17 +229,19 @@ defmodule Day15Test do
       """
       |> String.split("\n", trim: true)
       |> parse_map()
+      |> Map.put(:actions_performed, MapSet.new([1, 2, 3, 4, 5, 6]))
 
     expected =
       [
-        {5, 2, 197},
-        {5, 3, 197},
-        {4, 2, 197},
-        {5, 4, 197}
+        {5, 2, 197, 3},
+        {5, 3, 197, 4},
+        {4, 2, 197, 2},
+        {5, 4, 197, 6},
+        {3, 3, 200, 5}
       ]
-      |> Enum.reduce(expected, fn {x, y, hp}, state ->
-        {type, _prev_hp} = Map.get(state, {x, y})
-        Map.put(state, {x, y}, {type, hp})
+      |> Enum.reduce(expected, fn {x, y, hp, id}, state ->
+        {type, _prev_hp, _id} = Map.get(state, {x, y})
+        Map.put(state, {x, y}, {type, hp, id})
       end)
 
     assert combat_round(state) == expected
@@ -256,15 +263,63 @@ defmodule Day15Test do
         {2, 1, 3}
       ]
       |> Enum.reduce(state, fn {x, y, hp}, state ->
-        {type, _prev_hp} = Map.get(state, {x, y})
-        Map.put(state, {x, y}, {type, hp})
+        {type, _prev_hp, id} = Map.get(state, {x, y})
+        Map.put(state, {x, y}, {type, hp, id})
       end)
 
     new_state = combat_round(state)
 
     assert Map.get(new_state, {2, 1}) == nil
-    assert {_type, 200} = Map.get(new_state, {1, 1})
+    assert {_type, 200, _id} = Map.get(new_state, {1, 1})
     assert Map.get(new_state, :ended)
+  end
+
+  test "combat_round unit should not double attack" do
+    # G1 kills E1
+    # G2 moves into E1's old spot and attacks E2
+    # E1's turn comes and G2 is there, so it attacks again
+    state =
+      """
+      ######
+      #..G.#
+      #.GEE#
+      ######
+      """
+      |> String.split("\n", trim: true)
+      |> parse_map()
+
+    state =
+      [
+        {3, 2, 2}
+      ]
+      |> Enum.reduce(state, fn {x, y, hp}, state ->
+        {type, _prev_hp, id} = Map.get(state, {x, y})
+        Map.put(state, {x, y}, {type, hp, id})
+      end)
+
+    expected =
+      """
+      ######
+      #..G.#
+      #..GE#
+      ######
+      """
+      |> String.split("\n", trim: true)
+      |> parse_map()
+
+    expected =
+      [
+        {4, 2, 197, 4},
+        {3, 2, 197, 2}
+      ]
+      |> Enum.reduce(expected, fn {x, y, hp, id}, state ->
+        {type, _prev_hp, _id} = Map.get(state, {x, y})
+        Map.put(state, {x, y}, {type, hp, id})
+      end)
+      |> Map.put(:actions_performed, MapSet.new([1, 2, 4]))
+      |> Map.put(:current_id, 5)
+
+    assert combat_round(state) == expected
   end
 
   test "expand no valid locations" do
@@ -405,5 +460,11 @@ defmodule Day15Test do
     """
 
     assert combat_outcome(map) == 18740
+  end
+
+  test "Day 1" do
+    map = File.read!("input.txt")
+
+    assert combat_outcome(map) == 226_688
   end
 end

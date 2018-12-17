@@ -21,7 +21,7 @@ defmodule Day15 do
     |> Enum.map(&String.to_charlist/1)
     |> Enum.with_index()
     |> Enum.reduce(
-      %{goblins: MapSet.new(), elves: MapSet.new(), width: 0, height: 0},
+      %{goblins: MapSet.new(), elves: MapSet.new(), width: 0, height: 0, current_id: 1},
       fn {list_of_chars, y}, map ->
         list_of_chars
         |> Enum.with_index()
@@ -31,14 +31,18 @@ defmodule Day15 do
               Map.put(map, {x, y}, :wall)
 
             ?G ->
-              Map.put(map, {x, y}, {:goblin, 200})
+              {id, map} = Map.get_and_update(map, :current_id, &{&1, &1 + 1})
+
+              Map.put(map, {x, y}, {:goblin, 200, id})
               |> Map.update(:goblins, MapSet.new([{x, y}]), fn goblins ->
                 MapSet.put(goblins, {x, y})
               end)
 
             ?E ->
+              {id, map} = Map.get_and_update(map, :current_id, &{&1, &1 + 1})
+
               map
-              |> Map.put({x, y}, {:elf, 200})
+              |> Map.put({x, y}, {:elf, 200, id})
               |> Map.update(:elves, MapSet.new([{x, y}]), fn elves ->
                 MapSet.put(elves, {x, y})
               end)
@@ -61,8 +65,6 @@ defmodule Day15 do
 
     Stream.iterate(1, &(&1 + 1))
     |> Enum.reduce_while(state, fn rounds_completed, state ->
-      # state |> draw_map(rounds_completed - 1)
-
       state = combat_round(state)
 
       if Map.get(state, :ended) do
@@ -83,15 +85,19 @@ defmodule Day15 do
         hp_sum =
           unit_positions
           |> Enum.map(fn pos ->
-            {_type, hp} = Map.get(state, pos)
+            {_type, hp, _id} = Map.get(state, pos)
             hp
           end)
           |> Enum.sum()
 
+        # |> IO.inspect(label: "sum")
+
         sum =
           if Map.get(state, :full_round) do
+            # rounds_completed |> IO.inspect(label: "round")
             hp_sum * rounds_completed
           else
+            # (rounds_completed - 1) |> IO.inspect(label: "round")
             hp_sum * (rounds_completed - 1)
           end
 
@@ -108,7 +114,11 @@ defmodule Day15 do
   def combat_round(state) do
     state
     |> calculate_turn_order()
-    |> Enum.reduce(state, &perform_action/2)
+    |> Enum.reduce(state |> clear_actions_performed(), &perform_action/2)
+  end
+
+  def clear_actions_performed(state) do
+    Map.put(state, :actions_performed, MapSet.new())
   end
 
   @doc """
@@ -131,105 +141,39 @@ defmodule Day15 do
   """
   def perform_action(unit_position, state) do
     cond do
+      Map.get(state, unit_position) == nil ->
+        state
+
       Map.get(state, :ended) ->
         state
         |> Map.put(:full_round, false)
 
-      Map.get(state, unit_position) == nil ->
-        state
-
       true ->
-        {unit_type, _} = state |> Map.get(unit_position)
+        {_, _, id} = Map.get(state, unit_position)
+        actions_performed = Map.get(state, :actions_performed)
 
-        enemy_type = Map.get(@enemy_map, unit_type)
-        ally_type = Map.get(@type_map, unit_type)
-
-        ally_positions = Map.get(state, ally_type)
-        enemy_positions = Map.get(state, enemy_type)
-
-        adjacent_enemy =
-          find_adjacent_enemies(unit_position, enemy_positions)
-          |> Enum.map(fn {x, y} = pos ->
-            {type, hp} = Map.get(state, pos)
-            {hp, y, x, type}
-          end)
-          |> Enum.filter(fn {hp, _y, _x, _type} -> hp > 0 end)
-          |> Enum.sort()
-          |> Enum.find(& &1)
-
-        if adjacent_enemy == nil do
-          state = move_unit(unit_position, state, enemy_positions)
-          # TODO move_unit should return position to move to
-          new_ally_positions = Map.get(state, ally_type)
-
-          case MapSet.difference(new_ally_positions, ally_positions) |> MapSet.to_list() do
-            [new_position | _] ->
-              enemy_positions = Map.get(state, enemy_type)
-
-              # attack if units within range
-              adjacent_enemy =
-                find_adjacent_enemies(new_position, enemy_positions)
-                |> Enum.map(fn {x, y} = pos ->
-                  {type, hp} = Map.get(state, pos)
-                  {hp, y, x, type}
-                end)
-                |> Enum.filter(fn {hp, _y, _x, _type} -> hp > 0 end)
-                |> Enum.sort()
-                |> Enum.find(& &1)
-
-              if adjacent_enemy == nil do
-                state
-              else
-                # attack!
-                case adjacent_enemy do
-                  {hp, y, x, type} when hp > 3 ->
-                    Map.put(state, {x, y}, {type, hp - 3})
-
-                  {hp, y, x, _type} when hp <= 3 ->
-                    state = Map.delete(state, {x, y})
-
-                    enemies_left =
-                      Map.get(state, enemy_type)
-                      |> MapSet.delete({x, y})
-
-                    state = Map.put(state, enemy_type, enemies_left)
-
-                    # TODO no enemies = game over
-                    if MapSet.size(enemies_left) == 0 do
-                      Map.put(state, :ended, true)
-                      |> Map.put(:full_round, true)
-                    else
-                      state
-                    end
-                end
-              end
-
-            [] ->
-              # we didn't move
-              state
-          end
+        if MapSet.member?(actions_performed, id) do
+          state
         else
-          # attack!
-          case adjacent_enemy do
-            {hp, y, x, type} when hp > 3 ->
-              Map.put(state, {x, y}, {type, hp - 3})
+          state = Map.update(state, :actions_performed, MapSet.new([id]), &MapSet.put(&1, id))
+          adjacent_enemy = find_enemy_to_attack(state, unit_position)
 
-            {hp, y, x, _type} when hp <= 3 ->
-              state = Map.delete(state, {x, y})
-
-              enemies_left =
-                Map.get(state, enemy_type)
-                |> MapSet.delete({x, y})
-
-              state = Map.put(state, enemy_type, enemies_left)
-
-              # TODO no enemies = game over
-              if MapSet.size(enemies_left) == 0 do
-                Map.put(state, :ended, true)
-                |> Map.put(:full_round, true)
-              else
+          if adjacent_enemy == nil do
+            case move_unit(unit_position, state) do
+              {state, nil} ->
                 state
-              end
+
+              {state, new_pos} ->
+                adjacent_enemy = find_enemy_to_attack(state, new_pos)
+
+                if adjacent_enemy == nil do
+                  state
+                else
+                  attack_enemy(state, adjacent_enemy)
+                end
+            end
+          else
+            attack_enemy(state, adjacent_enemy)
           end
         end
     end
@@ -246,6 +190,13 @@ defmodule Day15 do
   @doc """
   Move a unit one step towards a goal.
   """
+  def move_unit(from_pos, state) do
+    {unit_type, _, _id} = Map.get(state, from_pos)
+    enemy_type = Map.get(@enemy_map, unit_type)
+    enemy_positions = Map.get(state, enemy_type)
+    move_unit(from_pos, state, enemy_positions)
+  end
+
   def move_unit(from_pos, state, goals) do
     w = Map.get(state, :width)
     h = Map.get(state, :height)
@@ -262,13 +213,13 @@ defmodule Day15 do
 
     case expand(from_pos, state, targets) do
       :exhausted ->
-        state
+        {state, nil}
 
       :no_goals ->
-        state
+        {state, nil}
 
       {_x, _y} = to_pos ->
-        {unit_type, _hp} = unit = Map.get(state, from_pos)
+        {unit_type, _hp, _id} = unit = Map.get(state, from_pos)
         unit_type_key = Map.get(@type_map, unit_type)
 
         unit_type_positions =
@@ -276,10 +227,13 @@ defmodule Day15 do
           |> MapSet.delete(from_pos)
           |> MapSet.put(to_pos)
 
-        state
-        |> Map.delete(from_pos)
-        |> Map.put(to_pos, unit)
-        |> Map.put(unit_type_key, unit_type_positions)
+        state =
+          state
+          |> Map.delete(from_pos)
+          |> Map.put(to_pos, unit)
+          |> Map.put(unit_type_key, unit_type_positions)
+
+        {state, to_pos}
     end
   end
 
@@ -415,5 +369,51 @@ defmodule Day15 do
 
       IO.puts(line <> "    " <> extra_string)
     end)
+  end
+
+  def find_enemy_to_attack(state, unit_position) do
+    {unit_type, _, _id} = state |> Map.get(unit_position)
+
+    enemy_type = Map.get(@enemy_map, unit_type)
+    enemy_positions = Map.get(state, enemy_type)
+
+    find_adjacent_enemies(unit_position, enemy_positions)
+    |> Enum.map(fn {x, y} = pos ->
+      {type, hp, id} = Map.get(state, pos)
+      {hp, y, x, type, id}
+    end)
+    |> Enum.sort()
+    |> Enum.find(& &1)
+  end
+
+  def attack_enemy(state, {hp, y, x, type, id}) when hp > 3 do
+    # {hp, x, y, type} |> IO.inspect(label: "attacked")
+    Map.put(state, {x, y}, {type, hp - 3, id})
+  end
+
+  def attack_enemy(state, {hp, y, x, type, _id}) when hp <= 3 do
+    # {hp, x, y, type} |> IO.inspect(label: "killed")
+    state = Map.delete(state, {x, y})
+
+    enemy_type = Map.get(@type_map, type)
+
+    enemies_left =
+      Map.get(state, enemy_type)
+      |> MapSet.delete({x, y})
+
+    state = Map.put(state, enemy_type, enemies_left)
+
+    # TODO no enemies = game over
+    if MapSet.size(enemies_left) == 0 do
+      Map.put(state, :ended, true)
+      |> Map.put(:full_round, true)
+    else
+      state
+    end
+  end
+
+  def first_half() do
+    File.read!("input.txt")
+    |> combat_outcome()
   end
 end
