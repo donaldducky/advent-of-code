@@ -467,4 +467,76 @@ defmodule Day15Test do
 
     assert combat_outcome(map) == 226_688
   end
+
+  test "minimum_elf_attack_power_outcome (15 atk, 29 rounds * 172 hp = 4988)" do
+    map = """
+    #######
+    #.G...#
+    #...EG#
+    #.#.#G#
+    #..G#E#
+    #.....#
+    #######
+    """
+
+    assert minimum_elf_attack_power_outcome(map) == 4988
+  end
+
+  test "minimum_elf_attack_power_outcome 2 (4 atk, 33 rounds * 948 hp = 31284)" do
+    map = """
+    #######
+    #E..EG#
+    #.#G.E#
+    #E.##E#
+    #G..#.#
+    #..E#.#
+    #######
+    """
+
+    assert minimum_elf_attack_power_outcome(map) == 31284
+  end
+
+  test "minimum_elf_attack_power_outcome 3 (15 atk, 37 rounds * 94 hp = 3478)" do
+    map = """
+    #######
+    #E.G#.#
+    #.#G..#
+    #G.#.G#
+    #G..#.#
+    #...E.#
+    #######
+    """
+
+    assert minimum_elf_attack_power_outcome(map) == 3478
+  end
+
+  test "minimum_elf_attack_power_outcome 4 (12 atk, 39 rounds * 166 hp = 6474)" do
+    map = """
+    #######
+    #.E...#
+    #.#..G#
+    #.###.#
+    #E#G#G#
+    #...#G#
+    #######
+    """
+
+    assert minimum_elf_attack_power_outcome(map) == 6474
+  end
+
+  test "minimum_elf_attack_power_outcome 5 (34 atk, 30 rounds * 38 hp = 1140)" do
+    map = """
+    #########
+    #G......#
+    #.E.#...#
+    #..##..G#
+    #...##..#
+    #...#...#
+    #.G...G.#
+    #.....G.#
+    #########
+    """
+
+    assert minimum_elf_attack_power_outcome(map) == 1140
+  end
 end

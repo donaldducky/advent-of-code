@@ -92,6 +92,69 @@ defmodule Day15 do
     hp_sum * rounds_completed
   end
 
+  def minimum_elf_attack_power_outcome(input) do
+    state =
+      input
+      |> String.split("\n", trim: true)
+      |> parse_map()
+
+    state
+    |> find_elves_win_result()
+    |> calculate_elves_win_outcome()
+  end
+
+  def find_elves_win_result(state) do
+    elf_count =
+      Map.get(state, :elves)
+      |> Enum.count()
+
+    Stream.iterate(1, &(&1 + 1))
+    |> Enum.reduce_while({nil, nil, nil}, fn _i, {best_loss, best_win, previous_win_result} ->
+      atk_power = pick_starting_attack_power(best_loss, best_win)
+
+      new_state = Map.put(state, :elf_attack_power, atk_power)
+
+      {new_state, rounds_completed} = battle(new_state)
+
+      elves_left =
+        Map.get(new_state, :elves)
+        |> Enum.count()
+
+      if elves_left == elf_count do
+        # elves win with no losses
+        if best_loss != nil and atk_power - best_loss == 1 do
+          {:halt, {new_state, rounds_completed}}
+        else
+          {:cont, {best_loss, atk_power, {new_state, rounds_completed}}}
+        end
+      else
+        if best_win != nil and best_win - atk_power == 1 do
+          {:halt, previous_win_result}
+        else
+          {:cont, {atk_power, best_win, previous_win_result}}
+        end
+      end
+    end)
+  end
+
+  def pick_starting_attack_power(nil, nil), do: 3
+
+  def pick_starting_attack_power(best_loss, nil), do: best_loss * 2
+
+  def pick_starting_attack_power(nil, best_win), do: div(best_win, 2)
+
+  def pick_starting_attack_power(best_loss, best_win) when best_win > best_loss,
+    do: best_loss + div(best_win - best_loss, 2)
+
+  def pick_starting_attack_power(best_loss, best_win), do: raise("error #{best_loss} #{best_win}")
+
+  def calculate_elves_win_outcome({state, rounds_completed}) do
+    Map.get(state, :elves)
+    |> Enum.map(&(Map.get(state, &1) |> elem(1)))
+    |> Enum.sum()
+    |> Kernel.*(rounds_completed)
+  end
+
   def battle(state) do
     Stream.iterate(1, &(&1 + 1))
     |> Enum.reduce_while(state, fn rounds_completed, state ->
@@ -426,5 +489,10 @@ defmodule Day15 do
   def first_half() do
     File.read!("input.txt")
     |> combat_outcome()
+  end
+
+  def second_half() do
+    File.read!("input.txt")
+    |> minimum_elf_attack_power_outcome()
   end
 end
