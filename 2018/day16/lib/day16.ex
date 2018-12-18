@@ -19,9 +19,13 @@ defmodule Day16 do
     end)
   end
 
-  def count_opcode_behaviours(samples, n) do
-    samples
-    |> Enum.count(&(count_behaviours(&1, n) >= n))
+  def parse_lines(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(fn line ->
+      {:ok, list, _, _, _, _} = LineParser.sample(line)
+      list
+    end)
   end
 
   @ops [
@@ -78,6 +82,129 @@ defmodule Day16 do
         {:cont, sum}
       end
     end)
+  end
+
+  def count_opcode_behaviours(samples, n) do
+    samples
+    |> Enum.count(&(count_behaviours(&1, n) >= n))
+  end
+
+  @doc """
+  iex> Day16.deduce_opcodes([
+  ...>   [[3, 2, 1, 1], [9, 2, 1, 2], [3, 2, 2, 1]],
+  ...>   [[3, 3, 0, 0], [9, 0, 1, 2], [3, 3, 9, 0]],
+  ...> ])
+  %{9 => :op_mulr}
+  """
+  def deduce_opcodes(samples) do
+    number_of_opcodes = @ops |> Enum.count()
+
+    candidates =
+      0..(number_of_opcodes - 1)
+      |> Enum.zip(
+        @ops
+        |> Enum.into(MapSet.new())
+        |> List.duplicate(number_of_opcodes)
+      )
+      |> Enum.into(%{})
+
+    samples
+    |> Enum.reduce_while({%{}, candidates}, fn sample, {op_code_map, candidates} ->
+      candidates = process_sample(sample, candidates)
+
+      {op_code_map, candidates} = apply_candidates(op_code_map, candidates)
+
+      if op_code_map |> Enum.count() < number_of_opcodes do
+        {:cont, {op_code_map, candidates}}
+      else
+        {:halt, {op_code_map, candidates}}
+      end
+    end)
+    |> elem(0)
+  end
+
+  @doc """
+  iex> Day16.apply_candidates(%{}, %{0 => MapSet.new([:a, :b, :c]), 4 => MapSet.new([:c]), 3 => MapSet.new([:d])})
+  {%{3 => :d, 4 => :c}, %{0 => MapSet.new([:a, :b])}}
+  """
+  def apply_candidates(op_code_map, candidates) do
+    {op_code_map, candidates} =
+      candidates
+      |> Enum.filter(fn {_k, v} -> MapSet.size(v) == 1 end)
+      |> Enum.reduce({op_code_map, candidates}, fn {op_code, ops}, {op_code_map, candidates} ->
+        op = MapSet.to_list(ops) |> Enum.at(0)
+
+        candidates = Map.delete(candidates, op_code)
+
+        candidates =
+          candidates
+          |> Enum.reduce(candidates, fn {k, v}, candidates ->
+            Map.put(candidates, k, MapSet.delete(v, op))
+          end)
+
+        {Map.put(op_code_map, op_code, op), Map.delete(candidates, op_code)}
+      end)
+
+    if Enum.find(candidates, fn {_k, v} -> MapSet.size(v) == 1 end) do
+      apply_candidates(op_code_map, candidates)
+    else
+      {op_code_map, candidates}
+    end
+  end
+
+  @doc """
+  iex> Day16.process_sample(
+  ...>   [[3, 2, 1, 1], [9, 2, 1, 2], [3, 2, 2, 1]],
+  ...>   %{9 => MapSet.new([:op_mulr, :op_gtir, :op_addi, :op_seti, :op_banr])}
+  ...> )
+  %{9 => MapSet.new([:op_mulr, :op_addi, :op_seti])}
+
+  iex> Day16.process_sample(
+  ...>   [[3, 2, 1, 1], [10, 2, 1, 2], [3, 2, 2, 1]],
+  ...>   %{9 => MapSet.new([:op_mulr, :op_gtir, :op_addi, :op_seti, :op_banr])}
+  ...> )
+  %{9 => MapSet.new([:op_mulr, :op_gtir, :op_addi, :op_seti, :op_banr])}
+  """
+  def process_sample([register_values, [op_code, a, b, c], result_values], candidates) do
+    if Map.get(candidates, op_code) == nil do
+      candidates
+    else
+      registers =
+        0..3
+        |> Enum.zip(register_values)
+        |> Enum.into(%{})
+
+      @ops
+      |> Enum.reduce(candidates, fn op, candidates ->
+        result =
+          apply(Day16, op, [registers, a, b, c])
+          |> Enum.unzip()
+          |> elem(1)
+
+        case result do
+          ^result_values ->
+            candidates
+
+          _ ->
+            Map.get_and_update(candidates, op_code, &{&1, MapSet.delete(&1, op)})
+            |> elem(1)
+        end
+      end)
+    end
+  end
+
+  def run_test(instructions, op_code_map) do
+    registers =
+      0..3
+      |> Enum.zip(List.duplicate(0, 4))
+      |> Enum.into(%{})
+
+    instructions
+    |> Enum.reduce(registers, fn [op_code, a, b, c], registers ->
+      op = Map.get(op_code_map, op_code)
+      apply(Day16, op, [registers, a, b, c])
+    end)
+    |> Map.get(0)
   end
 
   @doc """
@@ -324,6 +451,25 @@ defmodule Day16 do
     samples
     |> parse_samples()
     |> count_opcode_behaviours(3)
+  end
+
+  @doc """
+  iex> Day16.second_half()
+  681
+  """
+  def second_half() do
+    [samples, test_data] =
+      File.read!("input.txt")
+      |> String.split("\n\n\n\n", trim: true)
+
+    op_code_map =
+      samples
+      |> parse_samples()
+      |> deduce_opcodes()
+
+    test_data
+    |> parse_lines()
+    |> run_test(op_code_map)
   end
 end
 
