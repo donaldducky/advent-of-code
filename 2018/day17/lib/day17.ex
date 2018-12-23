@@ -331,6 +331,18 @@ defmodule Day17 do
   end
 
   @doc """
+
+  """
+  def count_still_water_tiles(map) do
+    bounds = map_bounds(map)
+    y_min = Map.get(bounds, :y_min)
+
+    map
+    |> Stream.filter(fn {{_x, y}, _tile} -> y >= y_min end)
+    |> Enum.count(fn {_, tile} -> tile == :still_water end)
+  end
+
+  @doc """
   #iex> Day17.first_half()
   #1
   """
@@ -342,6 +354,18 @@ defmodule Day17 do
     |> generate_water_flow()
     |> write_map("out-b.txt")
     |> count_water_tiles()
+  end
+
+  @doc """
+  #iex> Day17.first_half()
+  #1
+  """
+  def second_half() do
+    File.read!("input.txt")
+    |> String.split("\n", trim: true)
+    |> parse_map()
+    |> generate_water_flow()
+    |> count_still_water_tiles()
   end
 
   def write_map(map, filename) do
