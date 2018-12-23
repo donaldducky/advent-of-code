@@ -214,6 +214,54 @@ defmodule Day18 do
     tree_count * lumberyard_count
   end
 
+  def find_value_at_minutes({map, width, height}, number_of_minutes) do
+    {last_iteration, pattern_found} =
+      Stream.iterate(1, &(&1 + 1))
+      |> Enum.reduce_while({map, %{}, []}, fn i, {map, value_counts, pattern} ->
+        {new_map, _width, _height} = simulate_minutes({map, width, height}, 1)
+
+        resource_value = calculate_resource_value({new_map, width, height})
+
+        value_counts = Map.update(value_counts, resource_value, 1, &(&1 + 1))
+        n = Map.get(value_counts, resource_value)
+
+        # arbitrary number to detect start of pattern
+        # TODO check against previous n and values
+        # ie. we need n = the same number in a row and notice the pattern actually cycles
+        # right now we're just picking an arbitrary number and assuming the pattern is starting
+        pattern =
+          if n == 5 do
+            case pattern do
+              [] ->
+                # IO.puts("start of pattern? i=#{i}, v=#{resource_value}")
+                [resource_value]
+
+              _ ->
+                [resource_value | pattern]
+            end
+          else
+            pattern
+          end
+
+        if n == 6 do
+          {:halt, {i, pattern}}
+        else
+          if i == 1000 do
+            value_counts |> IO.inspect(label: "counts")
+            raise "quitting after 1000 iterations"
+          end
+
+          {:cont, {new_map, value_counts, pattern}}
+        end
+      end)
+
+    pattern_length = pattern_found |> Enum.count()
+
+    index = rem(number_of_minutes - last_iteration, pattern_length)
+    # we built the pattern in reverse
+    pattern_found |> Enum.reverse() |> Enum.at(index)
+  end
+
   @doc """
   """
   def first_half() do
@@ -222,5 +270,19 @@ defmodule Day18 do
     |> parse_map()
     |> simulate_minutes(10)
     |> calculate_resource_value()
+  end
+
+  @doc """
+  Pattern starts at i = 537 ends at i = 565
+  565 - 537 = 28
+  rem(1000000000 - 537, 28) = 15
+  537 + 15 = 552
+  value at i = 552 is 210160
+  """
+  def second_half() do
+    File.read!("input.txt")
+    |> String.split("\n", trim: true)
+    |> parse_map()
+    |> find_value_at_minutes(1_000_000_000)
   end
 end
