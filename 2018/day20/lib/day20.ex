@@ -112,10 +112,24 @@ defmodule Day20 do
     |> Enum.max()
   end
 
+  def at_least_n_doors_count(map, min_doors) do
+    map
+    |> Stream.map(fn {_pos, {_doors, doors_from_origin}} -> doors_from_origin end)
+    |> Stream.filter(&(&1 >= min_doors))
+    |> Enum.count()
+  end
+
   def first_half() do
     File.read!("input.txt")
     |> String.trim()
     |> parse_map_from_regex()
     |> most_doors_count()
+  end
+
+  def second_half() do
+    File.read!("input.txt")
+    |> String.trim()
+    |> parse_map_from_regex()
+    |> at_least_n_doors_count(1000)
   end
 end
