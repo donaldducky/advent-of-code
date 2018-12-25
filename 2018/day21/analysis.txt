@@ -22,7 +22,7 @@
 20    gtrr 2 1 2           r2 = (r2 > r1)?
 21    addr 2 5 5           r5 += r2              ip → 21 + r2
 22    addi 5 1 5           r5++                  ip → go to 24
-23    seti 25 _ 5          r5 = 5                ip → go to 6
+23    seti 25 _ 5          r5 = 25               ip → go to 26
 24    addi 4 1 4           r4++
 25    seti 17 _ 5          r5 = 17               ip → go to 18
 26    setr 4 _ 1           r1 = r4
@@ -77,3 +77,22 @@ for r4 = 0; r2 <= r1; r4++ {
   r2 = (r4 + 1) * 256       <<< 5
 }
 r1 = r4
+
+
+
+
+(6) r1 = r3 || 65536
+r3 = 14906355
+
+(8) r3 = ((((r3 + (r1 &&& 255)) &&& 16777215) * 65899) &&& 16777215)
+if 256 > r1
+  if r3 == r0
+    exit
+  else
+    goto (6)
+else
+for r4 = 0; r2 <= r1; r4++
+  r2 = (r4 + 1) * 256
+
+r1 = r4
+goto (8)
