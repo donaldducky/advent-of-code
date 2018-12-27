@@ -1,61 +1,35 @@
 defmodule Day22 do
   @moduledoc """
   Documentation for Day22.
+
+  If the erosion level modulo 3 is 0, the region's type is rocky.
+  If the erosion level modulo 3 is 1, the region's type is wet.
+  If the erosion level modulo 3 is 2, the region's type is narrow.
   """
-
-  @doc """
-  iex> Day22.calculate_erosion_levels_and_risk(510, {2, 2})
-  {
-    %{
-      {0, 0} => 510,
-      {1, 0} => 17317,
-      {2, 0} => 13941,
-      {0, 1} => 8415,
-      {1, 1} => 1805,
-      {2, 1} => 15997,
-      {0, 2} => 16320,
-      {1, 2} => 11113,
-      {2, 2} => 510,
-    },
-    5
-  }
-  """
-  def calculate_erosion_levels_and_risk(depth, {tx, ty}) do
-    erosion_levels = %{}
-    risk = 0
-
-    Enum.reduce(0..ty, {erosion_levels, risk}, fn y, acc ->
-      Enum.reduce(0..tx, acc, fn x, {erosion_levels, risk} ->
-        erosion_level =
-          geologic_index({x, y}, {tx, ty}, erosion_levels)
-          |> erosion_level(depth)
-
-        {Map.put(erosion_levels, {x, y}, erosion_level), risk + rem(erosion_level, 3)}
-      end)
-    end)
-  end
 
   @doc """
   iex> Day22.calculate_risk(510, {10, 10})
   114
   """
-  def calculate_risk(depth, target) do
-    {_erosion_levels, risk} = calculate_erosion_levels_and_risk(depth, target)
+  def calculate_risk(depth, {tx, ty}) do
+    state = TerrainState.new(depth, {tx, ty})
+
+    risk = 0
+
+    {_state, risk} =
+      Enum.reduce(0..ty, {state, risk}, fn y, acc ->
+        Enum.reduce(0..tx, acc, fn x, {state, risk} ->
+          {state, {_, _, type}} = TerrainState.get_terrain_info(state, {x, y})
+
+          {state, risk + type}
+        end)
+      end)
+
     risk
   end
 
-  def geologic_index({0, 0}, _, _), do: 0
-  def geologic_index({x, y}, {tx, ty}, _) when x == tx and y == ty, do: 0
-  def geologic_index({x, 0}, _, _), do: x * 16807
-  def geologic_index({0, y}, _, _), do: y * 48271
 
-  def geologic_index({x, y}, _, erosion_levels) do
-    Map.get(erosion_levels, {x - 1, y}) * Map.get(erosion_levels, {x, y - 1})
-  end
 
-  def erosion_level(geologic_index, depth) do
-    rem(geologic_index + depth, 20183)
-  end
 
   @doc """
   iex> Day22.first_half()
