@@ -36,10 +36,6 @@ defmodule Day24 do
     groups
   end
 
-  @doc ~S"""
-  iex> Day24.do_battle(File.read!("example.txt") |> String.split("\n", trim: true) |> Day24.parse_input())
-  5216
-  """
   def do_battle(groups) do
     state =
       groups
@@ -49,7 +45,9 @@ defmodule Day24 do
       end)
 
     Stream.iterate(1, &(&1 + 1))
-    |> Enum.reduce_while(state, fn _i, state ->
+    |> Enum.reduce_while(state, fn i, state ->
+      before = state
+
       state =
         selection_phase(state)
         |> attack_phase(state)
@@ -57,10 +55,75 @@ defmodule Day24 do
       if battle_over?(state) do
         {:halt, state}
       else
-        {:cont, state}
+        if i > 20000 do
+          if before == state do
+            IO.puts("state is the same")
+          end
+
+          state =
+            state
+            |> Enum.filter(fn {_, %{team: team}} -> team == :infection end)
+
+          # consider it a loss
+          # we hit a stalemate condition where both sides can't kill any units based on the rules
+          {:halt, state}
+        else
+          {:cont, state}
+        end
       end
     end)
-    |> units_left()
+  end
+
+  def do_battle_until_reindeer_wins(groups) do
+    Stream.iterate(1, &(&1 + 1))
+    |> Enum.reduce_while({nil, nil}, fn i, {loss, win} = acc ->
+      boost =
+        case acc do
+          {nil, nil} -> 0
+          {0, nil} -> 20
+          {highest_loss, nil} -> highest_loss * highest_loss
+          {nil, lowest_win} -> lowest_win / 2
+          {highest_loss, lowest_win} -> div(lowest_win - highest_loss, 2) + highest_loss
+        end
+
+      {i, boost, acc} |> IO.inspect(label: "iteration")
+
+      state = do_battle(groups |> boost(boost))
+
+      {loss, win} =
+        if reindeer_win?(state) do
+          {loss, boost}
+        else
+          {boost, win}
+        end
+
+      if win != nil and loss != nil and win - loss == 1 do
+        {:halt, state |> units_left()}
+      else
+        {:cont, {loss, win}}
+      end
+    end)
+  end
+
+  def boost(groups, boost_amount) do
+    groups
+    |> Enum.map(fn %{attack: attack, team: team} = group ->
+      if team == :immune_system do
+        Map.put(group, :attack, attack + boost_amount)
+      else
+        group
+      end
+    end)
+  end
+
+  def reindeer_win?(state) do
+    if !battle_over?(state) do
+      raise "battle is not over!"
+    end
+
+    state
+    |> Enum.find(fn {_id, %{team: team}} -> team == :immune_system end)
+    |> Kernel.!=(nil)
   end
 
   def battle_over?(state) do
@@ -295,10 +358,26 @@ defmodule Day24 do
     |> Enum.sum()
   end
 
+  @doc """
+  iex> Day24.first_half()
+  16747
+  """
   def first_half() do
     File.read!("input.txt")
     |> String.split("\n", trim: true)
     |> parse_input()
     |> do_battle()
+    |> units_left()
+  end
+
+  @doc """
+  iex> Day24.second_half()
+  5923
+  """
+  def second_half() do
+    File.read!("input.txt")
+    |> String.split("\n", trim: true)
+    |> parse_input()
+    |> do_battle_until_reindeer_wins()
   end
 end
