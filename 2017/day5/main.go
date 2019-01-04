@@ -10,6 +10,7 @@ import (
 
 func main() {
 	fmt.Printf("part 1: %d\n", part1())
+	fmt.Printf("part 1: %d\n", part2())
 }
 
 func part1() int {
@@ -35,6 +36,32 @@ func part1() int {
 	return i
 }
 
+func part2() int {
+	lines := readInput()
+	jumps := mapStringsToInt(lines)
+
+	i := 0
+	ptr := 0
+	max := len(jumps) - 1
+
+	for {
+		if ptr < 0 || ptr > max {
+			break
+		}
+
+		jump := jumps[ptr]
+		if jump >= 3 {
+			jumps[ptr] -= 1
+		} else {
+			jumps[ptr] += 1
+		}
+		ptr += jump
+
+		i++
+	}
+
+	return i
+}
 func readInput() []string {
 	contents, err := ioutil.ReadFile("input.txt")
 	if err != nil {
