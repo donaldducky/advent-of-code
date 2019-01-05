@@ -11,6 +11,7 @@ import (
 
 func main() {
 	fmt.Printf("Part 1: %d\n", part1())
+	fmt.Printf("Part 2: %d\n", part2())
 }
 
 func part1() int {
@@ -37,6 +38,30 @@ func part1() int {
 	}
 
 	return i
+}
+
+func part2() int {
+	lines := readInput()
+
+	if len(lines) > 1 {
+		log.Fatal("Expected one line")
+	}
+
+	banks := mapStringsToInts(strings.Split(lines[0], "\t"))
+
+	seen := make(map[string]int)
+
+	i := 0
+	for {
+		k := key(banks)
+		if v, ok := seen[k]; ok {
+			return i - v
+		}
+
+		seen[k] = i
+		banks = balance(banks)
+		i++
+	}
 }
 
 func readInput() []string {
