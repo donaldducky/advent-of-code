@@ -10,6 +10,7 @@ import (
 
 func main() {
 	fmt.Printf("Part 1: %d\n", part1())
+	fmt.Printf("Part 2: %d\n", part2())
 }
 
 func part1() int {
@@ -33,6 +34,31 @@ func part1() int {
 	for _, v := range registers {
 		if v > max {
 			max = v
+		}
+	}
+
+	return max
+}
+
+func part2() int {
+	lines := readInput()
+
+	var r1, in, r2, cmp string
+	var v1, v2 int
+	registers := make(map[string]int)
+	max := math.MinInt64
+	for _, line := range lines {
+		fmt.Sscanf(line, "%s %s %d if %s %s %d", &r1, &in, &v1, &r2, &cmp, &v2)
+
+		registers, vr1 := valueAt(registers, r1)
+		registers, vr2 := valueAt(registers, r2)
+
+		if holds(vr2, cmp, v2) {
+			registers[r1] = modify(vr1, in, v1)
+		}
+
+		if registers[r1] > max {
+			max = registers[r1]
 		}
 	}
 
