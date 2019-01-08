@@ -23,6 +23,7 @@ func (v vector3) distance(v2 vector3) int {
 
 func main() {
 	fmt.Printf("Part 1: %d\n", part1())
+	fmt.Printf("Part 2: %d\n", part2())
 }
 
 func part1() int {
@@ -38,11 +39,31 @@ func part1() int {
 		v = v.add(direction(d))
 	}
 
-	fmt.Printf("%+v\n", v)
-
 	o := vector3{}
 
 	return o.distance(v)
+}
+
+func part2() int {
+	bs, err := ioutil.ReadFile("input.txt")
+	if err != nil {
+		panic(err)
+	}
+
+	in := strings.Split(strings.TrimSpace(string(bs)), ",")
+
+	o := vector3{}
+	v := vector3{}
+	max := math.MinInt64
+	for _, d := range in {
+		v = v.add(direction(d))
+		dist := o.distance(v)
+		if dist > max {
+			max = dist
+		}
+	}
+
+	return max
 }
 
 func direction(d string) vector3 {
