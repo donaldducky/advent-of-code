@@ -8,6 +8,7 @@ import (
 
 func main() {
 	fmt.Printf("Part 1: %s\n", part1())
+	fmt.Printf("Part 2: %s\n", part2())
 }
 
 func part1() string {
@@ -17,9 +18,42 @@ func part1() string {
 	}
 
 	in := strings.Split(strings.TrimSpace(string(bs)), ",")
-
 	s := "abcdefghijklmnop"
-	for _, l := range in {
+
+	return dance(s, in)
+}
+
+func part2() string {
+	bs, err := ioutil.ReadFile("input.txt")
+	if err != nil {
+		panic(err)
+	}
+
+	in := strings.Split(strings.TrimSpace(string(bs)), ",")
+	s := "abcdefghijklmnop"
+	n := 1000000000
+
+	formations := []string{}
+	seen := map[string]bool{}
+	for i := 0; i < n; i++ {
+		if _, ok := seen[s]; ok {
+			break
+		}
+
+		seen[s] = true
+		formations = append(formations, s)
+
+		s = dance(s, in)
+	}
+
+	sz := len(formations)
+
+	return formations[n%sz]
+}
+
+func dance(s string, m []string) string {
+
+	for _, l := range m {
 		switch l[0] {
 		case 's':
 			var n int
