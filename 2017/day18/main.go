@@ -18,69 +18,79 @@ func part1() int {
 	}
 
 	instructions := strings.Split(strings.TrimSpace(string(bs)), "\n")
-	sz := len(instructions)
+	p := process{
+		registers: map[string]int{},
+	}
 
-	reg := map[string]int{}
-	ptr := 0
-	snd := 0
+	return runProgram(instructions, p)
+}
+
+func runProgram(in []string, p process) int {
+	sz := len(in)
+
+program:
 	for {
-		if ptr < 0 || ptr >= sz {
+		if p.ptr < 0 || p.ptr >= sz {
 			break
 		}
 
-		p := strings.Split(instructions[ptr], " ")
-		switch p[0] {
+		v := strings.Split(in[p.ptr], " ")
+		j := 1
+		switch v[0] {
 		case "add":
-			x, y := p[1], p[2]
-			reg[x] = valAtReg(reg, x) + val(reg, y)
+			p.set(v[1], p.at(v[1])+p.val(v[2]))
 		case "jgz":
-			x, y := p[1], p[2]
-			if val(reg, x) > 0 {
-				ptr += val(reg, y)
-			} else {
-				ptr++
+			if p.val(v[1]) > 0 {
+				j = p.val(v[2])
 			}
 		case "mod":
-			x, y := p[1], p[2]
-			reg[x] = valAtReg(reg, x) % val(reg, y)
+			p.set(v[1], p.at(v[1])%p.val(v[2]))
 		case "mul":
-			x, y := p[1], p[2]
-			reg[x] = valAtReg(reg, x) * val(reg, y)
+			p.set(v[1], p.at(v[1])*p.val(v[2]))
 		case "rcv":
-			x := p[1]
-			if val(reg, x) != 0 {
+			if p.val(v[1]) != 0 {
 				// recover
-				return snd
+				break program
 			}
 		case "set":
-			x, y := p[1], p[2]
-			reg[x] = val(reg, y)
+			p.set(v[1], p.val(v[2]))
 		case "snd":
-			x := p[1]
-			snd = val(reg, x)
+			p.snd = p.val(v[1])
 		}
 
-		if p[0] != "jgz" {
-			ptr++
-		}
+		p.incPtr(j)
 	}
 
-	return 0
+	return p.snd
 }
 
-func valAtReg(reg map[string]int, s string) int {
-	if v, ok := reg[s]; ok {
+type process struct {
+	ptr       int
+	registers map[string]int
+	snd       int
+}
+
+func (p *process) at(s string) int {
+	if v, ok := p.registers[s]; ok {
 		return v
 	}
 
 	return 0
 }
 
-func val(reg map[string]int, p string) int {
-	i, err := strconv.Atoi(p)
+func (p *process) val(s string) int {
+	i, err := strconv.Atoi(s)
 	if err == nil {
 		return i
 	}
 
-	return valAtReg(reg, p)
+	return p.at(s)
+}
+
+func (p *process) set(s string, v int) {
+	p.registers[s] = v
+}
+
+func (p *process) incPtr(v int) {
+	p.ptr = p.ptr + v
 }
