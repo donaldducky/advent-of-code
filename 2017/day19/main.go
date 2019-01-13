@@ -9,6 +9,7 @@ import (
 
 func main() {
 	fmt.Printf("Part 1: %s\n", part1())
+	fmt.Printf("Part 2: %d\n", part2())
 }
 
 func part1() string {
@@ -69,6 +70,69 @@ func part1() string {
 	}
 
 	return string(letters)
+}
+
+func part2() int {
+	file, err := os.Open("input.txt")
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	y := 0
+	tubes := map[int]map[int]rune{}
+	for scanner.Scan() {
+		line := strings.TrimRight(scanner.Text(), " \n")
+
+		tubes[y] = map[int]rune{}
+		for x, r := range line {
+			if r != ' ' {
+				tubes[y][x] = r
+			}
+		}
+
+		y++
+	}
+
+	sy := 0
+	var sx int
+	for x, r := range tubes[sy] {
+		if r == '|' {
+			sx = x
+			break
+		}
+	}
+
+	letters := []rune{}
+	x, y := sx, sy
+	dx, dy := 0, 1
+	i := 1
+	for {
+		x += dx
+		y += dy
+
+		r, ok := tubes[y][x]
+		if !ok {
+			break
+		}
+
+		switch r {
+		case '|':
+			// continue along
+		case '-':
+			// continue along
+		case '+':
+			dx, dy = changeDirection(x, y, dx, dy, tubes)
+		default:
+			// assume it's a letter
+			letters = append(letters, r)
+		}
+
+		i++
+	}
+
+	return i
 }
 
 func changeDirection(x, y, dx, dy int, tubes map[int]map[int]rune) (int, int) {
