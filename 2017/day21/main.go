@@ -9,6 +9,7 @@ import (
 
 func main() {
 	fmt.Printf("Part 1: %d\n", part1())
+	fmt.Printf("Part 2: %d\n", part2())
 }
 
 func part1() int {
@@ -38,6 +39,41 @@ func part1() int {
 	*/
 
 	n := 5
+	g := keyToGrid(".#./..#/###")
+	for i := 0; i < n; i++ {
+		g = generate(g, book)
+	}
+
+	return g.countOn()
+}
+
+func part2() int {
+	file, err := os.Open("input.txt")
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	book := map[string]grid{}
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		line := scanner.Text()
+
+		ss := strings.Split(line, " => ")
+
+		in := ss[0]
+		out := ss[1]
+
+		book = mapVariations(in, out, book)
+	}
+
+	/*
+		for in, out := range book {
+			fmt.Printf("in: %s out: %s\n", in, out.key())
+		}
+	*/
+
+	n := 18
 	g := keyToGrid(".#./..#/###")
 	for i := 0; i < n; i++ {
 		g = generate(g, book)
