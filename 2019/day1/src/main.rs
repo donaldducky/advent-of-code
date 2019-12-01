@@ -2,14 +2,16 @@ use std::fs;
 
 fn main() {
     let input = fs::read_to_string("input.txt").unwrap();
+    let masses = input.lines()
+        .map(|line| line.parse::<u32>().unwrap());
 
-    let mut sum1: u32 = 0;
-    let mut sum2: u32 = 0;
-    for line in input.lines() {
-        let mass: u32 = line.parse().unwrap();
-        sum1 += fuel_required(mass);
-        sum2 += total_fuel_required(mass, 0);
-    }
+    let sum1 = masses.clone()
+        .map(|mass| fuel_required(mass))
+        .fold(0, |sum, fuel| sum + fuel);
+
+    let sum2 = masses.clone()
+        .map(|mass| total_fuel_required(mass, 0))
+        .fold(0, |sum, fuel| sum + fuel);
 
     println!("Fuel required for part 1: {}", sum1);
     println!("Fuel required for part 2: {}", sum2);
