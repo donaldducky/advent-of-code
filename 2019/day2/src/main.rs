@@ -3,21 +3,26 @@ use std::fs;
 fn main() {
     let input = fs::read_to_string("input.txt").unwrap();
 
-    let mut int_codes: Vec<u32> = input.trim()
+    let int_codes: Vec<u32> = input.trim()
         .split(",")
         .map(|i| i.parse::<u32>().unwrap())
         .collect();
 
-    int_codes[1] = 12;
-    int_codes[2] = 2;
-    int_codes = run_program(int_codes);
+    let result_codes = run_program(int_codes.clone(), 12, 2);
+    println!("Part 1: {}", result_codes.get(0).unwrap());
 
-    println!("Part 1: {}", int_codes.get(0).unwrap());
+    let result_codes = find_inputs(int_codes, 19690720);
+    let noun = result_codes[1];
+    let verb = result_codes[2];
+    println!("Part 2: {}", 100 * noun + verb);
 }
 
-fn run_program(mut int_codes: Vec<u32>) -> Vec<u32> {
+fn run_program(mut int_codes: Vec<u32>, noun: u32, verb: u32) -> Vec<u32> {
     let mut position = 0;
     let mut opcode: u32;
+
+    int_codes[1] = noun;
+    int_codes[2] = verb;
 
     loop {
         opcode = *(int_codes.get(position).unwrap());
@@ -47,4 +52,17 @@ fn run_program(mut int_codes: Vec<u32>) -> Vec<u32> {
     }
 
     int_codes
+}
+
+fn find_inputs(int_codes: Vec<u32>, result: u32) -> Vec<u32> {
+    for noun in 0..100 {
+        for verb in 0..100 {
+            let codes = run_program(int_codes.clone(), noun, verb);
+            if *(codes.get(0).unwrap()) == result {
+                return codes;
+            }
+        }
+    }
+
+    panic!("brr");
 }
