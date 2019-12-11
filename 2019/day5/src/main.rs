@@ -27,49 +27,39 @@ impl CPU {
         loop {
             let op = self.at(self.ip).to_string();
             let (opcode, modes) = self.parse_op(&op);
-            print!("ip: {}\t", self.ip);
 
             match opcode {
                 Op::Add => {
-                    print!("[ {} {} {} {} ]\t", op, self.at(self.ip + 1), self.at(self.ip + 2), self.at(self.ip + 3));
                     let v1 = self.read_mode(self.ip + 1, modes.contains(&0));
                     let v2 = self.read_mode(self.ip + 2, modes.contains(&1));
                     let r = self.read_immediate(self.ip + 3) as usize;
 
-                    println!("add {} {} = {} to {}", v1, v2, v1 + v2, r);
                     self.set(r, v1 + v2);
                     self.incr(4);
                 },
                 Op::Mul => {
-                    print!("[ {} {} {} {} ]\t", op, self.at(self.ip + 1), self.at(self.ip + 2), self.at(self.ip + 3));
                     let v1 = self.read_mode(self.ip + 1, modes.contains(&0));
                     let v2 = self.read_mode(self.ip + 2, modes.contains(&1));
                     let r = self.read_immediate(self.ip + 3) as usize;
 
-                    println!("mul {} {} = {} to {}", v1, v2, v1 * v2, r);
                     self.set(r, v1 * v2);
                     self.incr(4);
                 },
                 Op::In => {
-                    print!("[ {} {} ]\t", op, self.at(self.ip + 1));
                     let r = self.read_immediate(self.ip + 1) as usize;
 
-                    println!("in {} to {}", input, r);
                     self.set(r, input as i32);
                     self.incr(2);
                 },
                 Op::Out => {
-                    print!("[ {} {} ]\t", op, self.at(self.ip + 1));
                     output = self.read_mode(self.ip + 1, modes.contains(&0));
 
-                    println!("out {}", output);
                     self.incr(2);
                 },
                 Op::JumpTrue => {
                     let p1 = self.read_mode(self.ip + 1, modes.contains(&0));
                     let p2 = self.read_mode(self.ip + 2, modes.contains(&1));
 
-                    println!("jumptrue");
                     if p1 != 0 {
                         self.ip = p2 as usize;
                     } else {
@@ -80,7 +70,6 @@ impl CPU {
                     let p1 = self.read_mode(self.ip + 1, modes.contains(&0));
                     let p2 = self.read_mode(self.ip + 2, modes.contains(&1));
 
-                    println!("jumpfalse");
                     if p1 == 0 {
                         self.ip = p2 as usize;
                     } else {
@@ -92,7 +81,6 @@ impl CPU {
                     let p2 = self.read_mode(self.ip + 2, modes.contains(&1));
                     let r = self.read_immediate(self.ip + 3) as usize;
 
-                    println!("lessthan");
                     if p1 < p2 {
                         self.set(r, 1);
                     } else {
@@ -106,7 +94,6 @@ impl CPU {
                     let p2 = self.read_mode(self.ip + 2, modes.contains(&1));
                     let r = self.read_immediate(self.ip + 3) as usize;
 
-                    println!("equals");
                     if p1 == p2 {
                         self.set(r, 1);
                     } else {
@@ -116,7 +103,6 @@ impl CPU {
                     self.incr(4);
                 },
                 Op::Quit => {
-                    println!("] quit");
                     break;
                 }
             };
