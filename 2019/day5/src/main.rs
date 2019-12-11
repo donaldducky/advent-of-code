@@ -13,6 +13,10 @@ enum Op {
     Mul,
     In,
     Out,
+    JumpTrue,
+    JumpFalse,
+    LessThan,
+    Equals,
     Quit
 }
 
@@ -61,6 +65,56 @@ impl CPU {
                     println!("out {}", output);
                     self.incr(2);
                 },
+                Op::JumpTrue => {
+                    let p1 = self.read_mode(self.ip + 1, modes.contains(&0));
+                    let p2 = self.read_mode(self.ip + 2, modes.contains(&1));
+
+                    println!("jumptrue");
+                    if p1 != 0 {
+                        self.ip = p2 as usize;
+                    } else {
+                        self.incr(3);
+                    }
+                },
+                Op::JumpFalse => {
+                    let p1 = self.read_mode(self.ip + 1, modes.contains(&0));
+                    let p2 = self.read_mode(self.ip + 2, modes.contains(&1));
+
+                    println!("jumpfalse");
+                    if p1 == 0 {
+                        self.ip = p2 as usize;
+                    } else {
+                        self.incr(3);
+                    }
+                },
+                Op::LessThan => {
+                    let p1 = self.read_mode(self.ip + 1, modes.contains(&0));
+                    let p2 = self.read_mode(self.ip + 2, modes.contains(&1));
+                    let r = self.read_immediate(self.ip + 3) as usize;
+
+                    println!("lessthan");
+                    if p1 < p2 {
+                        self.set(r, 1);
+                    } else {
+                        self.set(r, 0);
+                    }
+
+                    self.incr(4);
+                },
+                Op::Equals => {
+                    let p1 = self.read_mode(self.ip + 1, modes.contains(&0));
+                    let p2 = self.read_mode(self.ip + 2, modes.contains(&1));
+                    let r = self.read_immediate(self.ip + 3) as usize;
+
+                    println!("equals");
+                    if p1 == p2 {
+                        self.set(r, 1);
+                    } else {
+                        self.set(r, 0);
+                    }
+
+                    self.incr(4);
+                },
                 Op::Quit => {
                     println!("] quit");
                     break;
@@ -82,6 +136,10 @@ impl CPU {
             2 => Op::Mul,
             3 => Op::In,
             4 => Op::Out,
+            5 => Op::JumpTrue,
+            6 => Op::JumpFalse,
+            7 => Op::LessThan,
+            8 => Op::Equals,
             99 => Op::Quit,
             _ => panic!("parse_op: unknown opcode {}", opcode)
         };
@@ -138,9 +196,15 @@ fn main() {
         .collect();
 
     let mut cpu = CPU {
-        memory: int_codes,
+        memory: int_codes.clone(),
         ip: 0
     };
 
     println!("Part 1: {}", cpu.run(1));
+
+    let mut cpu = CPU {
+        memory: int_codes.clone(),
+        ip: 0
+    };
+    println!("Part 2: {}", cpu.run(5));
 }
