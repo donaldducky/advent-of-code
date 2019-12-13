@@ -16,6 +16,7 @@ fn main() {
     let mut parents = HashSet::new();
     let mut children = HashSet::new();
     let mut families: HashMap<String, HashSet<String>> = HashMap::new();
+    let mut child_parent: HashMap<String, String> = HashMap::new();
     for caps in line_caps.iter() {
         parents.insert(&caps[1]);
         children.insert(&caps[2]);
@@ -29,6 +30,7 @@ fn main() {
                 families.insert(caps[1].to_string(), children);
             },
         }
+        child_parent.insert(caps[2].to_string(), caps[1].to_string());
     }
 
     let mut roots: Vec<&str> = Vec::new();
@@ -39,6 +41,8 @@ fn main() {
     }
 
     println!("Part 1: {}", orbit_count);
+
+    println!("Part 2: {}", count_transfers("YOU".to_string(), 0, &families, &child_parent, HashSet::new()));
 }
 
 // hmm rust doesn't have tail recursion
@@ -55,4 +59,34 @@ fn count_orbits(root: String, depth: u32, families: &HashMap<String, HashSet<Str
     };
 
     count + depth
+}
+
+fn count_transfers(from: String, transfers: u32, families: &HashMap<String, HashSet<String>>, child_parent: &HashMap<String, String>, visited: HashSet<String>) -> u32 {
+    let mut paths: Vec<String> = Vec::new();
+
+    match families.get(&from) {
+        None => (),
+        Some(children) => children.iter().for_each(|c| paths.push(c.to_string())),
+    }
+
+    match child_parent.get(&from) {
+        None => (),
+        Some(parent) => paths.push(parent.to_string()),
+    }
+
+    let num_transfers = paths.iter()
+        .filter(|path| !visited.contains(&path.to_string()))
+        .map(|path| if path == "SAN" {
+            transfers - 1
+        } else {
+            let mut visited_paths = visited.clone();
+            visited_paths.insert(from.to_string());
+            count_transfers(path.to_string(), transfers + 1, &families, &child_parent, visited_paths)
+        })
+        .min();
+
+    match num_transfers {
+        None => 999999999,
+        Some(n) => n,
+    }
 }
