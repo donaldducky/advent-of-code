@@ -1,10 +1,14 @@
 use std::cmp;
 use std::collections::HashSet;
 use std::fs;
+use std::sync::mpsc::Sender;
+use std::sync::mpsc::Receiver;
 
 pub struct CPU {
+    pub id: String,
     pub memory: Vec<i32>,
     pub ip: usize,
+    debug: bool,
 }
 
 enum Op {
@@ -20,6 +24,15 @@ enum Op {
 }
 
 impl CPU {
+    pub fn new(name: String, memory: Vec<i32>) -> CPU {
+        CPU {
+            id: name,
+            memory: memory,
+            ip: 0,
+            debug: false,
+        }
+    }
+
     pub fn run(&mut self, mut inputs: Vec<isize>) -> i32 {
         let mut output: i32 = 0;
 
@@ -52,6 +65,106 @@ impl CPU {
                 },
                 Op::Out => {
                     output = self.read_mode(self.ip + 1, modes.contains(&0));
+
+                    self.incr(2);
+                },
+                Op::JumpTrue => {
+                    let p1 = self.read_mode(self.ip + 1, modes.contains(&0));
+                    let p2 = self.read_mode(self.ip + 2, modes.contains(&1));
+
+                    if p1 != 0 {
+                        self.ip = p2 as usize;
+                    } else {
+                        self.incr(3);
+                    }
+                },
+                Op::JumpFalse => {
+                    let p1 = self.read_mode(self.ip + 1, modes.contains(&0));
+                    let p2 = self.read_mode(self.ip + 2, modes.contains(&1));
+
+                    if p1 == 0 {
+                        self.ip = p2 as usize;
+                    } else {
+                        self.incr(3);
+                    }
+                },
+                Op::LessThan => {
+                    let p1 = self.read_mode(self.ip + 1, modes.contains(&0));
+                    let p2 = self.read_mode(self.ip + 2, modes.contains(&1));
+                    let r = self.read_immediate(self.ip + 3) as usize;
+
+                    if p1 < p2 {
+                        self.set(r, 1);
+                    } else {
+                        self.set(r, 0);
+                    }
+
+                    self.incr(4);
+                },
+                Op::Equals => {
+                    let p1 = self.read_mode(self.ip + 1, modes.contains(&0));
+                    let p2 = self.read_mode(self.ip + 2, modes.contains(&1));
+                    let r = self.read_immediate(self.ip + 3) as usize;
+
+                    if p1 == p2 {
+                        self.set(r, 1);
+                    } else {
+                        self.set(r, 0);
+                    }
+
+                    self.incr(4);
+                },
+                Op::Quit => {
+                    break;
+                }
+            };
+        }
+
+        output
+    }
+
+    pub fn run2(&mut self, tx: &Sender<i32>, rx: &Receiver<i32>) -> i32 {
+        let mut output: i32 = 0;
+
+        loop {
+            let op = self.at(self.ip).to_string();
+            let (opcode, modes) = self.parse_op(&op);
+
+            match opcode {
+                Op::Add => {
+                    let v1 = self.read_mode(self.ip + 1, modes.contains(&0));
+                    let v2 = self.read_mode(self.ip + 2, modes.contains(&1));
+                    let r = self.read_immediate(self.ip + 3) as usize;
+
+                    self.set(r, v1 + v2);
+                    self.incr(4);
+                },
+                Op::Mul => {
+                    let v1 = self.read_mode(self.ip + 1, modes.contains(&0));
+                    let v2 = self.read_mode(self.ip + 2, modes.contains(&1));
+                    let r = self.read_immediate(self.ip + 3) as usize;
+
+                    self.set(r, v1 * v2);
+                    self.incr(4);
+                },
+                Op::In => {
+                    let r = self.read_immediate(self.ip + 1) as usize;
+                    self.print(format!("Waiting for input"));
+                    let input = rx.recv().unwrap();
+                    self.print(format!("Got {}", input));
+
+                    self.set(r, input);
+                    self.incr(2);
+                },
+                Op::Out => {
+                    output = self.read_mode(self.ip + 1, modes.contains(&0));
+                    self.print(format!("Sending output {}", output));
+                    match tx.send(output) {
+                        Ok(_) => (),
+                        Err(e) => {
+                            self.print(format!("Send error {}", e));
+                        },
+                    };
 
                     self.incr(2);
                 },
@@ -168,6 +281,12 @@ impl CPU {
         match is_immediate {
             true => self.read_immediate(pos),
             false => self.read_position(pos),
+        }
+    }
+
+    fn print(&self, msg: String) {
+        if self.debug {
+            println!("[{}] {}", self.id, msg);
         }
     }
 }
