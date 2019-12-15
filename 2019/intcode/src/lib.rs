@@ -1,5 +1,3 @@
-use std::cmp;
-use std::collections::HashSet;
 use std::fs;
 use std::sync::mpsc::Sender;
 use std::sync::mpsc::Receiver;
@@ -9,6 +7,11 @@ pub struct CPU {
     pub memory: Vec<i32>,
     pub ip: usize,
     debug: bool,
+}
+
+struct Instruction {
+    op: Op,
+    modes: Vec<Mode>,
 }
 
 enum Op {
@@ -21,6 +24,20 @@ enum Op {
     LessThan,
     Equals,
     Quit
+}
+
+enum Mode {
+    Position,
+    Immediate,
+}
+
+impl Instruction {
+    fn mode(&self, i: usize) -> &Mode {
+        match self.modes.get(i) {
+            Some(mode) => mode,
+            None => &Mode::Position,
+        }
+    }
 }
 
 impl CPU {
@@ -37,21 +54,21 @@ impl CPU {
         let mut output: i32 = 0;
 
         loop {
-            let op = self.at(self.ip).to_string();
-            let (opcode, modes) = self.parse_op(&op);
+            let instruction_code = self.at(self.ip);
+            let ins = self.parse_instruction(instruction_code);
 
-            match opcode {
+            match ins.op {
                 Op::Add => {
-                    let v1 = self.read_mode(self.ip + 1, modes.contains(&0));
-                    let v2 = self.read_mode(self.ip + 2, modes.contains(&1));
+                    let v1 = self.read_mode(self.ip + 1, ins.mode(0));
+                    let v2 = self.read_mode(self.ip + 2, ins.mode(1));
                     let r = self.read_immediate(self.ip + 3) as usize;
 
                     self.set(r, v1 + v2);
                     self.incr(4);
                 },
                 Op::Mul => {
-                    let v1 = self.read_mode(self.ip + 1, modes.contains(&0));
-                    let v2 = self.read_mode(self.ip + 2, modes.contains(&1));
+                    let v1 = self.read_mode(self.ip + 1, ins.mode(0));
+                    let v2 = self.read_mode(self.ip + 2, ins.mode(1));
                     let r = self.read_immediate(self.ip + 3) as usize;
 
                     self.set(r, v1 * v2);
@@ -67,7 +84,7 @@ impl CPU {
                     self.incr(2);
                 },
                 Op::Out => {
-                    output = self.read_mode(self.ip + 1, modes.contains(&0));
+                    output = self.read_mode(self.ip + 1, ins.mode(0));
                     self.print(format!("Sending output {}", output));
                     match tx.send(output) {
                         Ok(_) => (),
@@ -79,8 +96,8 @@ impl CPU {
                     self.incr(2);
                 },
                 Op::JumpTrue => {
-                    let p1 = self.read_mode(self.ip + 1, modes.contains(&0));
-                    let p2 = self.read_mode(self.ip + 2, modes.contains(&1));
+                    let p1 = self.read_mode(self.ip + 1, ins.mode(0));
+                    let p2 = self.read_mode(self.ip + 2, ins.mode(1));
 
                     if p1 != 0 {
                         self.ip = p2 as usize;
@@ -89,8 +106,8 @@ impl CPU {
                     }
                 },
                 Op::JumpFalse => {
-                    let p1 = self.read_mode(self.ip + 1, modes.contains(&0));
-                    let p2 = self.read_mode(self.ip + 2, modes.contains(&1));
+                    let p1 = self.read_mode(self.ip + 1, ins.mode(0));
+                    let p2 = self.read_mode(self.ip + 2, ins.mode(1));
 
                     if p1 == 0 {
                         self.ip = p2 as usize;
@@ -99,8 +116,8 @@ impl CPU {
                     }
                 },
                 Op::LessThan => {
-                    let p1 = self.read_mode(self.ip + 1, modes.contains(&0));
-                    let p2 = self.read_mode(self.ip + 2, modes.contains(&1));
+                    let p1 = self.read_mode(self.ip + 1, ins.mode(0));
+                    let p2 = self.read_mode(self.ip + 2, ins.mode(1));
                     let r = self.read_immediate(self.ip + 3) as usize;
 
                     if p1 < p2 {
@@ -112,8 +129,8 @@ impl CPU {
                     self.incr(4);
                 },
                 Op::Equals => {
-                    let p1 = self.read_mode(self.ip + 1, modes.contains(&0));
-                    let p2 = self.read_mode(self.ip + 2, modes.contains(&1));
+                    let p1 = self.read_mode(self.ip + 1, ins.mode(0));
+                    let p2 = self.read_mode(self.ip + 2, ins.mode(1));
                     let r = self.read_immediate(self.ip + 3) as usize;
 
                     if p1 == p2 {
@@ -133,12 +150,8 @@ impl CPU {
         output
     }
 
-    fn parse_op(&self, op: &String) -> (Op, HashSet<usize>) {
-        let len = op.len();
-
-        let op_start = cmp::max(0, len as i32 - 2) as usize;
-        let opcode = &op[op_start..];
-        let opcode = opcode.parse::<u32>().unwrap();
+    fn parse_instruction(&self, instruction_code: i32) -> Instruction {
+        let opcode = instruction_code % 100;
         let opcode = match opcode {
             1 => Op::Add,
             2 => Op::Mul,
@@ -152,19 +165,23 @@ impl CPU {
             _ => panic!("parse_op: unknown opcode {}", opcode)
         };
 
-        let modes_end = cmp::max(0, len as i32 - 2) as usize;
-        let mode_string = &op[0..modes_end];
-        let mut modes = HashSet::new();
-        for (i, c) in (*mode_string).chars().rev().enumerate() {
-            match c {
-                '1' => {
-                    modes.insert(i);
-                },
-                _ => (),
-            }
-        }
+        let modes = (instruction_code / 100)
+            .to_string()
+            .chars()
+            .rev()
+            .map(|d| {
+                match d {
+                    '0' => Mode::Position,
+                    '1' => Mode::Immediate,
+                    _ => panic!("Unknown mode {}", d),
+                }
+            })
+            .collect();
 
-        (opcode, modes)
+        Instruction {
+            op: opcode,
+            modes: modes,
+        }
     }
 
     fn at(&self, pos: usize) -> i32 {
@@ -187,10 +204,10 @@ impl CPU {
         self.at(pos)
     }
 
-    fn read_mode(&self, pos: usize, is_immediate: bool) -> i32 {
-        match is_immediate {
-            true => self.read_immediate(pos),
-            false => self.read_position(pos),
+    fn read_mode(&self, pos: usize, mode: &Mode) -> i32 {
+        match mode {
+            Mode::Immediate => self.read_immediate(pos),
+            _ => self.read_position(pos),
         }
     }
 
