@@ -3,15 +3,20 @@ use std::sync::mpsc::Sender;
 use std::sync::mpsc::Receiver;
 
 pub struct CPU {
-    pub id: String,
-    pub memory: Vec<i32>,
-    pub ip: usize,
+    id: String,
+    memory: Vec<i32>,
+    ip: usize,
     debug: bool,
 }
 
 struct Instruction {
     op: Op,
     modes: Vec<Mode>,
+}
+
+struct Parameter {
+    value: i32,
+    mode: Mode,
 }
 
 enum Op {
@@ -26,6 +31,7 @@ enum Op {
     Quit
 }
 
+#[derive(Copy,Clone)]
 enum Mode {
     Position,
     Immediate,
@@ -59,32 +65,35 @@ impl CPU {
 
             match ins.op {
                 Op::Add => {
-                    let v1 = self.read_mode(self.ip + 1, ins.mode(0));
-                    let v2 = self.read_mode(self.ip + 2, ins.mode(1));
-                    let r = self.read_immediate(self.ip + 3) as usize;
+                    let p1 = Parameter { value: self.at(self.ip + 1), mode: *ins.mode(0) };
+                    let p2 = Parameter { value: self.at(self.ip + 2), mode: *ins.mode(1) };
+                    let p3 = Parameter { value: self.at(self.ip + 3), mode: *ins.mode(2) };
 
-                    self.set(r, v1 + v2);
+                    self.set(self.read_pointer(p3), self.read(p1) + self.read(p2));
                     self.incr(4);
                 },
                 Op::Mul => {
-                    let v1 = self.read_mode(self.ip + 1, ins.mode(0));
-                    let v2 = self.read_mode(self.ip + 2, ins.mode(1));
-                    let r = self.read_immediate(self.ip + 3) as usize;
+                    let p1 = Parameter { value: self.at(self.ip + 1), mode: *ins.mode(0) };
+                    let p2 = Parameter { value: self.at(self.ip + 2), mode: *ins.mode(1) };
+                    let p3 = Parameter { value: self.at(self.ip + 3), mode: *ins.mode(2) };
 
-                    self.set(r, v1 * v2);
+                    self.set(self.read_pointer(p3), self.read(p1) * self.read(p2));
                     self.incr(4);
                 },
                 Op::In => {
-                    let r = self.read_immediate(self.ip + 1) as usize;
+                    let p1 = Parameter { value: self.at(self.ip + 1), mode: *ins.mode(0) };
+
                     self.print(format!("Waiting for input"));
                     let input = rx.recv().unwrap();
                     self.print(format!("Got {}", input));
 
-                    self.set(r, input);
+                    self.set(self.read_pointer(p1), input);
                     self.incr(2);
                 },
                 Op::Out => {
-                    output = self.read_mode(self.ip + 1, ins.mode(0));
+                    let p1 = Parameter { value: self.at(self.ip + 1), mode: *ins.mode(0) };
+                    output = self.read(p1);
+
                     self.print(format!("Sending output {}", output));
                     match tx.send(output) {
                         Ok(_) => (),
@@ -96,47 +105,47 @@ impl CPU {
                     self.incr(2);
                 },
                 Op::JumpTrue => {
-                    let p1 = self.read_mode(self.ip + 1, ins.mode(0));
-                    let p2 = self.read_mode(self.ip + 2, ins.mode(1));
+                    let p1 = Parameter { value: self.at(self.ip + 1), mode: *ins.mode(0) };
+                    let p2 = Parameter { value: self.at(self.ip + 2), mode: *ins.mode(1) };
 
-                    if p1 != 0 {
-                        self.ip = p2 as usize;
+                    if self.read(p1) != 0 {
+                        self.ip = self.read(p2) as usize;
                     } else {
                         self.incr(3);
                     }
                 },
                 Op::JumpFalse => {
-                    let p1 = self.read_mode(self.ip + 1, ins.mode(0));
-                    let p2 = self.read_mode(self.ip + 2, ins.mode(1));
+                    let p1 = Parameter { value: self.at(self.ip + 1), mode: *ins.mode(0) };
+                    let p2 = Parameter { value: self.at(self.ip + 2), mode: *ins.mode(1) };
 
-                    if p1 == 0 {
-                        self.ip = p2 as usize;
+                    if self.read(p1) == 0 {
+                        self.ip = self.read(p2) as usize;
                     } else {
                         self.incr(3);
                     }
                 },
                 Op::LessThan => {
-                    let p1 = self.read_mode(self.ip + 1, ins.mode(0));
-                    let p2 = self.read_mode(self.ip + 2, ins.mode(1));
-                    let r = self.read_immediate(self.ip + 3) as usize;
+                    let p1 = Parameter { value: self.at(self.ip + 1), mode: *ins.mode(0) };
+                    let p2 = Parameter { value: self.at(self.ip + 2), mode: *ins.mode(1) };
+                    let p3 = Parameter { value: self.at(self.ip + 3), mode: *ins.mode(2) };
 
-                    if p1 < p2 {
-                        self.set(r, 1);
+                    if self.read(p1) < self.read(p2) {
+                        self.set(self.read_pointer(p3), 1);
                     } else {
-                        self.set(r, 0);
+                        self.set(self.read_pointer(p3), 0);
                     }
 
                     self.incr(4);
                 },
                 Op::Equals => {
-                    let p1 = self.read_mode(self.ip + 1, ins.mode(0));
-                    let p2 = self.read_mode(self.ip + 2, ins.mode(1));
-                    let r = self.read_immediate(self.ip + 3) as usize;
+                    let p1 = Parameter { value: self.at(self.ip + 1), mode: *ins.mode(0) };
+                    let p2 = Parameter { value: self.at(self.ip + 2), mode: *ins.mode(1) };
+                    let p3 = Parameter { value: self.at(self.ip + 3), mode: *ins.mode(2) };
 
-                    if p1 == p2 {
-                        self.set(r, 1);
+                    if self.read(p1) == self.read(p2) {
+                        self.set(self.read_pointer(p3), 1);
                     } else {
-                        self.set(r, 0);
+                        self.set(self.read_pointer(p3), 0);
                     }
 
                     self.incr(4);
@@ -196,18 +205,17 @@ impl CPU {
         self.ip += n;
     }
 
-    fn read_position(&self, pos: usize) -> i32 {
-        self.at(self.at(pos) as usize)
+    fn read(&self, p: Parameter) -> i32 {
+        match p.mode {
+            Mode::Immediate => p.value,
+            _ => self.at(self.read_pointer(p)),
+        }
     }
 
-    fn read_immediate(&self, pos: usize) -> i32 {
-        self.at(pos)
-    }
-
-    fn read_mode(&self, pos: usize, mode: &Mode) -> i32 {
-        match mode {
-            Mode::Immediate => self.read_immediate(pos),
-            _ => self.read_position(pos),
+    fn read_pointer(&self, p: Parameter) -> usize {
+        match p.mode {
+            Mode::Position => p.value as usize,
+            Mode::Immediate => panic!("Cannot read pointer in Immediate mode."),
         }
     }
 
