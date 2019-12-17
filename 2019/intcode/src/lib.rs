@@ -4,9 +4,10 @@ use std::sync::mpsc::Receiver;
 
 pub struct CPU {
     id: String,
-    memory: Vec<i32>,
+    memory: Vec<i128>,
     ip: usize,
     debug: bool,
+    relative_base: i128,
 }
 
 struct Instruction {
@@ -15,7 +16,7 @@ struct Instruction {
 }
 
 struct Parameter {
-    value: i32,
+    value: i128,
     mode: Mode,
 }
 
@@ -28,6 +29,7 @@ enum Op {
     JumpFalse,
     LessThan,
     Equals,
+    RelativeBase,
     Quit
 }
 
@@ -35,6 +37,7 @@ enum Op {
 enum Mode {
     Position,
     Immediate,
+    Relative,
 }
 
 impl Instruction {
@@ -47,17 +50,22 @@ impl Instruction {
 }
 
 impl CPU {
-    pub fn new(name: String, memory: Vec<i32>) -> CPU {
+    pub fn new(name: String, memory: Vec<i128>) -> CPU {
         CPU {
             id: name,
             memory: memory,
             ip: 0,
             debug: false,
+            relative_base: 0,
         }
     }
 
-    pub fn run(&mut self, tx: &Sender<i32>, rx: &Receiver<i32>) -> i32 {
-        let mut output: i32 = 0;
+    pub fn debug(&mut self, is_debug: bool) {
+        self.debug = is_debug;
+    }
+
+    pub fn run(&mut self, tx: &Sender<i128>, rx: &Receiver<i128>) -> i128 {
+        let mut output: i128 = 0;
 
         loop {
             let instruction_code = self.at(self.ip);
@@ -150,6 +158,13 @@ impl CPU {
 
                     self.incr(4);
                 },
+                Op::RelativeBase => {
+                    let p1 = Parameter { value: self.at(self.ip + 1), mode: *ins.mode(0) };
+
+                    self.relative_base += self.read(p1);
+
+                    self.incr(2);
+                },
                 Op::Quit => {
                     break;
                 }
@@ -159,7 +174,7 @@ impl CPU {
         output
     }
 
-    fn parse_instruction(&self, instruction_code: i32) -> Instruction {
+    fn parse_instruction(&self, instruction_code: i128) -> Instruction {
         let opcode = instruction_code % 100;
         let opcode = match opcode {
             1 => Op::Add,
@@ -170,6 +185,7 @@ impl CPU {
             6 => Op::JumpFalse,
             7 => Op::LessThan,
             8 => Op::Equals,
+            9 => Op::RelativeBase,
             99 => Op::Quit,
             _ => panic!("parse_op: unknown opcode {}", opcode)
         };
@@ -182,6 +198,7 @@ impl CPU {
                 match d {
                     '0' => Mode::Position,
                     '1' => Mode::Immediate,
+                    '2' => Mode::Relative,
                     _ => panic!("Unknown mode {}", d),
                 }
             })
@@ -193,11 +210,17 @@ impl CPU {
         }
     }
 
-    fn at(&self, pos: usize) -> i32 {
-        *(self.memory.get(pos).unwrap())
+    fn at(&self, pos: usize) -> i128 {
+        match self.memory.get(pos) {
+            Some(val) => *val,
+            None => 0,
+        }
     }
 
-    fn set(&mut self, pos: usize, val: i32) -> () {
+    fn set(&mut self, pos: usize, val: i128) -> () {
+        if pos >= self.memory.len() {
+            self.memory.resize_with(pos + 1, Default::default);
+        }
         self.memory[pos] = val;
     }
 
@@ -205,7 +228,7 @@ impl CPU {
         self.ip += n;
     }
 
-    fn read(&self, p: Parameter) -> i32 {
+    fn read(&self, p: Parameter) -> i128 {
         match p.mode {
             Mode::Immediate => p.value,
             _ => self.at(self.read_pointer(p)),
@@ -216,6 +239,7 @@ impl CPU {
         match p.mode {
             Mode::Position => p.value as usize,
             Mode::Immediate => panic!("Cannot read pointer in Immediate mode."),
+            Mode::Relative => (p.value + self.relative_base) as usize,
         }
     }
 
@@ -226,12 +250,12 @@ impl CPU {
     }
 }
 
-pub fn read_program(file: &str) -> Vec<i32> {
+pub fn read_program(file: &str) -> Vec<i128> {
     let input = fs::read_to_string(file).unwrap();
 
-    let int_codes: Vec<i32> = input.trim()
+    let int_codes: Vec<i128> = input.trim()
         .split(",")
-        .map(|i| i.parse::<i32>().unwrap())
+        .map(|i| i.parse::<i128>().unwrap())
         .collect();
 
     int_codes

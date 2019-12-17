@@ -5,16 +5,16 @@ use std::thread::JoinHandle;
 use std::sync::mpsc;
 use std::sync::mpsc::Sender;
 use std::sync::mpsc::Receiver;
+use intcode;
 use intcode::CPU;
-use intcode::read_program;
 
 fn main() {
-    let program = read_program("input.txt");
+    let program = intcode::read_program("input.txt");
     println!("Part 1: {}", max_thruster_signal(program.clone(), vec![0, 1, 2, 3, 4]));
     println!("Part 2: {}", max_thruster_signal(program.clone(), vec![5, 6, 7, 8, 9]));
 }
 
-fn max_thruster_signal(program: Vec<i32>, phase_setting_values: Vec<u8>) -> i32 {
+fn max_thruster_signal(program: Vec<i128>, phase_setting_values: Vec<u8>) -> i128 {
     let all_combinations = gen_combinations(phase_setting_values, vec![]);
     all_combinations.iter()
         .fold(0, |acc, phase_settings| {
@@ -22,13 +22,13 @@ fn max_thruster_signal(program: Vec<i32>, phase_setting_values: Vec<u8>) -> i32 
         })
 }
 
-fn calculate_signal(program: Vec<i32>, phase_settings: Vec<u8>) -> i32 {
-    let mut senders: Vec<Sender<i32>> = Vec::new();
-    let mut receivers: VecDeque<Receiver<i32>> = VecDeque::new();
+fn calculate_signal(program: Vec<i128>, phase_settings: Vec<u8>) -> i128 {
+    let mut senders: Vec<Sender<i128>> = Vec::new();
+    let mut receivers: VecDeque<Receiver<i128>> = VecDeque::new();
 
     phase_settings.iter()
         .for_each(|_| {
-            let (tx, rx): (Sender<i32>, Receiver<i32>) = mpsc::channel();
+            let (tx, rx): (Sender<i128>, Receiver<i128>) = mpsc::channel();
             senders.push(tx);
             receivers.push_back(rx);
         });
@@ -38,7 +38,7 @@ fn calculate_signal(program: Vec<i32>, phase_settings: Vec<u8>) -> i32 {
     let rx = receivers.pop_back().unwrap();
     receivers.push_front(rx);
 
-    let handles: Vec<JoinHandle<i32>> = phase_settings.iter()
+    let handles: Vec<JoinHandle<i128>> = phase_settings.iter()
         .enumerate()
         .map(|(i, _)| {
             let mut cpu = CPU::new(i.to_string(), program.clone());
@@ -56,11 +56,11 @@ fn calculate_signal(program: Vec<i32>, phase_settings: Vec<u8>) -> i32 {
         .enumerate()
         .for_each(|(i, phase_setting)| {
             let tx = senders.get(i).unwrap();
-            tx.send(*phase_setting as i32).unwrap();
+            tx.send(*phase_setting as i128).unwrap();
         });
 
     // the last sender, sends to the first cpu
-    let last_cpu_sender: &Sender<i32> = senders.last().unwrap();
+    let last_cpu_sender: &Sender<i128> = senders.last().unwrap();
     last_cpu_sender.send(0).unwrap();
 
     let mut handles = handles;
