@@ -5,10 +5,11 @@ use intcode;
 fn main() {
     let program = intcode::read_program("input.txt");
 
-    println!("Part 1: {}", boost_keycode(program));
+    println!("Part 1: {}", boost_keycode(program.clone(), 1));
+    println!("Part 2: {}", boost_keycode(program.clone(), 2));
 }
 
-fn boost_keycode(program: Vec<i128>) -> i128 {
+fn boost_keycode(program: Vec<i128>, input: i128) -> i128 {
     let mut cpu = intcode::CPU::new("day9".to_string(), program.clone());
 
     let (tx, rx) = mpsc::channel();
@@ -18,7 +19,7 @@ fn boost_keycode(program: Vec<i128>) -> i128 {
         cpu.run(&tx0, &rx)
     });
 
-    tx.send(1).unwrap();
+    tx.send(input).unwrap();
 
     handle.join().unwrap()
 }
