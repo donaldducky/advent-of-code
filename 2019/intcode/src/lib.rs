@@ -10,6 +10,13 @@ pub struct CPU {
     relative_base: i128,
 }
 
+pub enum Cmd {
+    RequestInput(),
+    Input(i128),
+    Output(i128),
+    Halt(),
+}
+
 struct Instruction {
     op: Op,
     modes: Vec<Mode>,
@@ -64,7 +71,7 @@ impl CPU {
         self.debug = is_debug;
     }
 
-    pub fn run(&mut self, tx: &Sender<i128>, rx: &Receiver<i128>) -> i128 {
+    pub fn run(&mut self, tx: &Sender<Cmd>, rx: &Receiver<Cmd>) -> i128 {
         let mut output: i128 = 0;
 
         loop {
@@ -92,7 +99,15 @@ impl CPU {
                     let p1 = Parameter { value: self.at(self.ip + 1), mode: *ins.mode(0) };
 
                     self.print(format!("Waiting for input"));
-                    let input = rx.recv().unwrap();
+
+                    match tx.send(Cmd::RequestInput()) {
+                        Ok(_) => (),
+                        Err(e) => self.print(format!("Send error {}", e)),
+                    }
+                    let input = match rx.recv().unwrap() {
+                        Cmd::Input(val) => val,
+                        _ => panic!("Unexpected command, expected Input"),
+                    };
                     self.print(format!("Got {}", input));
 
                     self.set(self.read_pointer(p1), input);
@@ -103,7 +118,7 @@ impl CPU {
                     output = self.read(p1);
 
                     self.print(format!("Sending output {}", output));
-                    match tx.send(output) {
+                    match tx.send(Cmd::Output(output)) {
                         Ok(_) => (),
                         Err(e) => {
                             self.print(format!("Send error {}", e));
@@ -166,6 +181,12 @@ impl CPU {
                     self.incr(2);
                 },
                 Op::Quit => {
+                    match tx.send(Cmd::Halt()) {
+                        Ok(_) => (),
+                        Err(e) => {
+                            self.print(format!("Send error when trying to halt {}", e));
+                        },
+                    }
                     break;
                 }
             };
