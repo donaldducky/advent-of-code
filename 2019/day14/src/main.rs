@@ -3,13 +3,13 @@ use std::collections::HashMap;
 use std::fmt;
 use std::fs;
 
-#[derive(Debug,Eq,PartialEq,Hash,Clone)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
 struct Chemical {
     id: String,
-    quantity: u64
+    quantity: u64,
 }
 
-#[derive(Debug,Eq,PartialEq,Hash,Clone)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone)]
 struct Reaction {
     input_chemicals: Vec<Chemical>,
     output_chemical: Chemical,
@@ -19,7 +19,7 @@ impl Chemical {
     fn new(id: String, quantity: u64) -> Chemical {
         Chemical {
             id: id,
-            quantity: quantity
+            quantity: quantity,
         }
     }
 }
@@ -34,14 +34,19 @@ impl Reaction {
     fn new(inputs: Vec<Chemical>, output: Chemical) -> Reaction {
         Reaction {
             input_chemicals: inputs,
-            output_chemical: output
+            output_chemical: output,
         }
     }
 }
 
 impl fmt::Display for Reaction {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{} => {}", self.input_chemicals.iter().format(" "), self.output_chemical)
+        write!(
+            f,
+            "{} => {}",
+            self.input_chemicals.iter().format(" "),
+            self.output_chemical
+        )
     }
 }
 
@@ -57,14 +62,16 @@ fn read_file(file: &str) -> String {
 }
 
 fn parse_reactions(input: String) -> Vec<Reaction> {
-    let reactions: Vec<Reaction> = input.trim()
+    let reactions: Vec<Reaction> = input
+        .trim()
         .split("\n")
         .map(|line| {
             let parts: Vec<&str> = line.split(" => ").collect();
             if parts.len() != 2 {
                 panic!("Could not parse line {}", line)
             }
-            let inputs: Vec<Chemical> = parts[0].split(", ")
+            let inputs: Vec<Chemical> = parts[0]
+                .split(", ")
                 .map(|chemical| parse_chemical(chemical))
                 .collect();
 
@@ -94,8 +101,8 @@ fn calculate_ore_required(input: String, num_fuel: u64) -> u64 {
 
     // convert to HashMap so we can easily look up reactions by output
     // TODO should have read it as a HashMap to begin with
-    let reactions_by_output: HashMap<String, Reaction> = reactions.into_iter()
-        .fold(HashMap::new(), |mut acc, r| {
+    let reactions_by_output: HashMap<String, Reaction> =
+        reactions.into_iter().fold(HashMap::new(), |mut acc, r| {
             acc.insert(r.output_chemical.id.to_string(), r);
             acc
         });
@@ -111,7 +118,7 @@ fn calculate_ore_required(input: String, num_fuel: u64) -> u64 {
         // find out how many "extras" we have
         let extras = match extra.get(&c.id) {
             Some(n) => *n,
-            None => 0
+            None => 0,
         };
         if extras >= c.quantity {
             extra.insert(c.id, extras - c.quantity);
@@ -135,7 +142,8 @@ fn calculate_ore_required(input: String, num_fuel: u64) -> u64 {
             ores += ores_per_reaction * reactions_needed;
         } else {
             let mut chemicals_to_append = r.input_chemicals.clone();
-            chemicals_to_append.iter_mut()
+            chemicals_to_append
+                .iter_mut()
                 .for_each(|c| c.quantity *= reactions_needed);
 
             chemicals_needed.append(&mut chemicals_to_append);
@@ -177,11 +185,10 @@ fn calculate_maximum_fuel(input: String) -> u64 {
     min
 }
 
-
 #[cfg(test)]
 mod tests {
-    use crate::calculate_ore_required;
     use crate::calculate_maximum_fuel;
+    use crate::calculate_ore_required;
 
     /**
      * TODO figure out how to do table tests
@@ -196,7 +203,8 @@ mod tests {
 7 A, 1 B => 1 C
 7 A, 1 C => 1 D
 7 A, 1 D => 1 E
-7 A, 1 E => 1 FUEL".to_string();
+7 A, 1 E => 1 FUEL"
+            .to_string();
 
         assert_eq!(calculate_ore_required(input, 1), 31);
     }
@@ -210,7 +218,8 @@ mod tests {
 3 A, 4 B => 1 AB
 5 B, 7 C => 1 BC
 4 C, 1 A => 1 CA
-2 AB, 3 BC, 4 CA => 1 FUEL".to_string();
+2 AB, 3 BC, 4 CA => 1 FUEL"
+            .to_string();
 
         assert_eq!(calculate_ore_required(input, 1), 165);
     }
@@ -226,7 +235,8 @@ mod tests {
 177 ORE => 5 HKGWZ
 7 DCFZ, 7 PSHF => 2 XJWVT
 165 ORE => 2 GPVTF
-3 DCFZ, 7 NZVS, 5 HKGWZ, 10 PSHF => 8 KHKGT".to_string();
+3 DCFZ, 7 NZVS, 5 HKGWZ, 10 PSHF => 8 KHKGT"
+            .to_string();
 
         assert_eq!(calculate_ore_required(input, 1), 13312);
     }
@@ -245,7 +255,8 @@ mod tests {
 145 ORE => 6 MNCFX
 1 NVRVD => 8 CXFTF
 1 VJHF, 6 MNCFX => 4 RFSQX
-176 ORE => 6 VJHF".to_string();
+176 ORE => 6 VJHF"
+            .to_string();
 
         assert_eq!(calculate_ore_required(input, 1), 180697);
     }
@@ -269,7 +280,8 @@ mod tests {
 3 BHXH, 2 VRPVC => 7 MZWV
 121 ORE => 7 VRPVC
 7 XCVML => 6 RJRHP
-5 BHXH, 4 VRPVC => 5 LTCX".to_string();
+5 BHXH, 4 VRPVC => 5 LTCX"
+            .to_string();
 
         assert_eq!(calculate_ore_required(input, 1), 2210736);
     }
@@ -285,7 +297,8 @@ mod tests {
 177 ORE => 5 HKGWZ
 7 DCFZ, 7 PSHF => 2 XJWVT
 165 ORE => 2 GPVTF
-3 DCFZ, 7 NZVS, 5 HKGWZ, 10 PSHF => 8 KHKGT".to_string();
+3 DCFZ, 7 NZVS, 5 HKGWZ, 10 PSHF => 8 KHKGT"
+            .to_string();
 
         assert_eq!(calculate_maximum_fuel(input), 82892753);
     }
@@ -304,7 +317,8 @@ mod tests {
 145 ORE => 6 MNCFX
 1 NVRVD => 8 CXFTF
 1 VJHF, 6 MNCFX => 4 RFSQX
-176 ORE => 6 VJHF".to_string();
+176 ORE => 6 VJHF"
+            .to_string();
 
         assert_eq!(calculate_maximum_fuel(input), 5586022);
     }
@@ -328,7 +342,8 @@ mod tests {
 3 BHXH, 2 VRPVC => 7 MZWV
 121 ORE => 7 VRPVC
 7 XCVML => 6 RJRHP
-5 BHXH, 4 VRPVC => 5 LTCX".to_string();
+5 BHXH, 4 VRPVC => 5 LTCX"
+            .to_string();
 
         assert_eq!(calculate_maximum_fuel(input), 460664);
     }
