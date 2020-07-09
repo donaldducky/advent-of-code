@@ -15,13 +15,6 @@ struct Reaction {
     output_chemical: Chemical,
 }
 
-#[derive(Debug)]
-struct Expand {
-    to_expand: Vec<Chemical>,
-    extra: HashMap<String, u32>,
-    ores: u32
-}
-
 impl Chemical {
     fn new(id: String, quantity: u32) -> Chemical {
         Chemical {
@@ -49,16 +42,6 @@ impl Reaction {
 impl fmt::Display for Reaction {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{} => {}", self.input_chemicals.iter().format(" "), self.output_chemical)
-    }
-}
-
-impl Expand {
-    fn new(inputs: Vec<Chemical>) -> Expand {
-        Expand {
-            to_expand: inputs,
-            extra: HashMap::new(),
-            ores: 0
-        }
     }
 }
 
@@ -107,103 +90,58 @@ fn parse_chemical(chemical: &str) -> Chemical {
 
 fn calculate_ore_required(input: String) -> u32 {
     let reactions = parse_reactions(input);
-    //println!("--- Reactions ---\n{}", reactions.iter().format("\n"));
-
-    // find input OREs
-    let ores = find_ores(reactions.clone());
-    println!("ORES: {}", ores.iter().format("\n"));
 
     // convert to HashMap so we can easily look up reactions by output
+    // TODO should have read it as a HashMap to begin with
     let reactions_by_output: HashMap<String, Reaction> = reactions.into_iter()
         .fold(HashMap::new(), |mut acc, r| {
             acc.insert(r.output_chemical.id.to_string(), r);
             acc
         });
 
-    //println!("MAP: {:#?}", reactions_by_output);
+    let mut chemicals_needed: Vec<Chemical> = vec![Chemical::new("FUEL".to_string(), 1)];
+    let mut extra: HashMap<String, u32> = HashMap::new();
+    let mut ores: u32 = 0;
 
-    let fuel = match reactions_by_output.get("FUEL") {
-        Some(r) => r,
-        None => panic!("Could not find FUEL")
-    };
-    println!("FUEL requirements: {}", fuel.input_chemicals.iter().format(", "));
+    while chemicals_needed.len() > 0 {
+        let c = chemicals_needed.pop().unwrap();
+        let r = reactions_by_output.get(&c.id).unwrap();
 
-    let mut expand = Expand::new(fuel.input_chemicals.clone());
-    println!("{:#?}", expand);
-
-    let max_iters: u32 = 5;
-    let infinite: bool = true;
-    let mut i: u32 = 0;
-    while expand.to_expand.len() > 0 {
-        if !infinite && i >= max_iters {
-            break;
+        // find out how many "extras" we have
+        let extras = match extra.get(&c.id) {
+            Some(n) => *n,
+            None => 0
+        };
+        if extras >= c.quantity {
+            extra.insert(c.id, extras - c.quantity);
+            continue;
         }
-        i = i + 1;
 
-        println!("--- Iteration #{}: {}", i, expand.to_expand.iter().format(", "));
+        let ores_per_reaction = r.input_chemicals[0].quantity;
+        let quantity_per_reaction = r.output_chemical.quantity;
 
-        let c = match expand.to_expand.pop() {
-            Some(c) => c,
-            None => panic!("Could not find item to expand")
-        };
+        let quantity_needed = c.quantity - extras;
 
-        let r = match reactions_by_output.get(&c.id) {
-            Some(r) => r,
-            None => panic!("Could not find reactions for chemical {}", c)
-        };
-        println!("[Expand] {}: {}", c, r);
+        let mut reactions_needed = quantity_needed / quantity_per_reaction;
+        if quantity_needed % quantity_per_reaction > 0 {
+            reactions_needed += 1;
+        }
+
+        let quantity_created = quantity_per_reaction * reactions_needed;
+        extra.insert(c.id, quantity_created - quantity_needed);
+
         if r.input_chemicals.len() == 1 && r.input_chemicals[0].id == "ORE" {
-            // find out how many "extras" we have
-            let extras = match expand.extra.get(&c.id) {
-                Some(n) => *n,
-                None => 0
-            };
-            // figure out the actual quantity we need
-            if extras > c.quantity {
-                // we have more extra than we need, no need to create any reactions
-                let leftover = extras - c.quantity;
-
-                expand.extra.insert(c.id, leftover);
-            } else {
-                let ores_per_reaction = r.input_chemicals[0].quantity;
-                let quantity_per_reaction = r.output_chemical.quantity;
-                let quantity_needed = c.quantity - extras;
-                let reactions_needed = (quantity_needed as f64 / quantity_per_reaction as f64).ceil() as u32;
-                println!("  extra {} = {}", &c.id, extras);
-                println!("  need {} {} = {} reactions", quantity_needed, &c.id, reactions_needed);
-
-                let ores_consumed = ores_per_reaction * reactions_needed;
-                let quantity_created = quantity_per_reaction * reactions_needed;
-                let leftover = quantity_created - quantity_needed;
-                println!("  \x1b[32m{} ores\x1b[0m used to make \x1b[32m{} {}\x1b[0m with \x1b[33m{}\x1b[0m leftover", ores_consumed, quantity_created, r.output_chemical.id, leftover);
-
-                expand.extra.insert(c.id, leftover);
-                expand.ores += ores_consumed;
-            }
+            ores += ores_per_reaction * reactions_needed;
         } else {
-            let quantity_needed = c.quantity;
-            let quantity_produced = r.output_chemical.quantity;
-            let multiplier = (quantity_needed as f64 / quantity_produced as f64).ceil() as u32;
-
             let mut chemicals_to_append = r.input_chemicals.clone();
             chemicals_to_append.iter_mut()
-                .for_each(|c| c.quantity *= multiplier);
+                .for_each(|c| c.quantity *= reactions_needed);
 
-            println!("  \x1b[33mfound {}\x1b[0m \x1b[34mx{}\x1b[0m = \x1b[33m{}\x1b[0m", r.input_chemicals.iter().format(", "), multiplier, chemicals_to_append.clone().iter().format(", "));
-
-            expand.to_expand.append(&mut chemicals_to_append);
+            chemicals_needed.append(&mut chemicals_to_append);
         }
-
-        println!("");
     }
 
-    expand.ores
-}
-
-fn find_ores(reactions: Vec<Reaction>) -> Vec<Reaction> {
-    reactions.into_iter()
-        .filter(|r| r.input_chemicals.len() == 1 && r.input_chemicals[0].id == "ORE")
-        .collect()
+    ores
 }
 
 
