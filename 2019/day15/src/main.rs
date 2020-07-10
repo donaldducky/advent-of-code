@@ -5,6 +5,7 @@ use intcode;
 use intcode::Cmd;
 use intcode::CPU;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::sync::mpsc;
 use std::thread;
 
@@ -193,18 +194,25 @@ fn main() {
                 .long("2")
                 .conflicts_with("part-1"),
         )
+        .arg(
+            Arg::with_name("animate")
+                .help("Animate steps")
+                .long("animate"),
+        )
         .get_matches();
 
     let filename = matches.value_of("input-file").unwrap();
     let program = intcode::read_program(filename);
 
+    let do_animate = matches.is_present("animate");
+
     if matches.is_present("part-1") {
         println!("{}", part1(program.clone()));
     } else if matches.is_present("part-2") {
-        println!("{}", part2(program.clone()));
+        println!("{}", part2(program.clone(), do_animate));
     } else {
         println!("Part 1: {}", part1(program.clone()));
-        println!("Part 2: {}", part2(program.clone()));
+        println!("Part 2: {}", part2(program.clone(), do_animate));
     }
 }
 
@@ -214,8 +222,40 @@ fn part1(program: Vec<i128>) -> usize {
     state.path.len()
 }
 
-fn part2(program: Vec<i128>) -> usize {
+fn part2(program: Vec<i128>, do_animate: bool) -> usize {
     let state = explore(program, true);
+
+    let draw_fn: &dyn Fn(&DroidState, &HashSet<Point>, i128, i128, i128, i128) -> () =
+        if do_animate { &draw_map } else { &draw_noop };
+
+    let (min_x, max_x, min_y, max_y): (i128, i128, i128, i128) = if do_animate {
+        let mut min_x: i128 = 0;
+        let mut max_x: i128 = 0;
+        let mut min_y: i128 = 0;
+        let mut max_y: i128 = 0;
+
+        state.closed.iter().for_each(|(p, _v)| {
+            if p.x > max_x {
+                max_x = p.x;
+            }
+            if p.x < min_x {
+                min_x = p.x;
+            }
+            if p.y > max_y {
+                max_y = p.y;
+            }
+            if p.y < min_y {
+                min_y = p.y;
+            }
+        });
+        (min_x, max_x, min_y, max_y)
+    } else {
+        (0, 0, 0, 0)
+    };
+
+    let mut oxygen_map: HashSet<Point> = HashSet::new();
+
+    println!("{}..{} {}..{}", min_x, max_x, min_y, max_y);
 
     //state.draw();
     //println!("Exploring complete! Oxygen tank at {:?}", oxygen_tank);
@@ -250,16 +290,64 @@ fn part2(program: Vec<i128>) -> usize {
                 .collect();
             filtered.iter().for_each(|p| {
                 to_fill.remove(p);
+                oxygen_map.insert(p.clone());
             });
             next.extend(filtered);
         }
         open = next;
+        draw_fn(&state, &oxygen_map, min_x, max_x, min_y, max_y);
 
         j += 1;
     }
 
     // do not count initial oxygen location
     j - 1
+}
+
+fn draw_map(
+    state: &DroidState,
+    oxygen_map: &HashSet<Point>,
+    min_x: i128,
+    max_x: i128,
+    min_y: i128,
+    max_y: i128,
+) {
+    // better to draw on top of characters so it doesn't blink
+    // This is the way.
+    print!("\x1b[2J");
+
+    for y in min_y..=max_y {
+        for x in min_x..=max_x {
+            let p = Point::new(x, y);
+            match state.closed.get(&p) {
+                Some(v) => match *v {
+                    WALL_TILE => print!("#"),
+                    _ => {
+                        if oxygen_map.contains(&p) {
+                            print!("\x1b[44mO\x1b[0m");
+                        } else {
+                            print!(".");
+                        }
+                    }
+                },
+                None => print!(" "),
+            }
+        }
+        println!("");
+    }
+    println!("");
+
+    std::thread::sleep(std::time::Duration::from_millis(50));
+}
+
+fn draw_noop(
+    _state: &DroidState,
+    _open: &HashSet<Point>,
+    _min_x: i128,
+    _max_x: i128,
+    _min_y: i128,
+    _max_y: i128,
+) {
 }
 
 fn explore(program: Vec<i128>, entire_map: bool) -> DroidState {
