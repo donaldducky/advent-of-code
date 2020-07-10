@@ -1,4 +1,5 @@
 extern crate clap;
+extern crate termion;
 
 use clap::{App, Arg};
 use intcode;
@@ -8,6 +9,7 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::sync::mpsc;
 use std::thread;
+use termion::{clear, color, cursor, style};
 
 /*
 Use intcode program.
@@ -255,7 +257,10 @@ fn part2(program: Vec<i128>, do_animate: bool) -> usize {
 
     let mut oxygen_map: HashSet<Point> = HashSet::new();
 
-    println!("{}..{} {}..{}", min_x, max_x, min_y, max_y);
+    if do_animate {
+        print!("{}", clear::All);
+        print!("{}", cursor::Hide);
+    }
 
     //state.draw();
     //println!("Exploring complete! Oxygen tank at {:?}", oxygen_tank);
@@ -295,9 +300,18 @@ fn part2(program: Vec<i128>, do_animate: bool) -> usize {
             next.extend(filtered);
         }
         open = next;
-        draw_fn(&state, &oxygen_map, min_x, max_x, min_y, max_y);
+
+        if do_animate {
+            draw_fn(&state, &oxygen_map, min_x, max_x, min_y, max_y);
+        }
 
         j += 1;
+    }
+
+    if do_animate {
+        let h = (max_y - min_y) as u16 + 2;
+        print!("{}", cursor::Goto(1, h));
+        print!("{}", cursor::Show);
     }
 
     // do not count initial oxygen location
@@ -314,17 +328,19 @@ fn draw_map(
 ) {
     // better to draw on top of characters so it doesn't blink
     // This is the way.
-    print!("\x1b[2J");
 
+    let mut screen_y = 1;
     for y in min_y..=max_y {
+        let mut screen_x = 1;
         for x in min_x..=max_x {
+            print!("{}", cursor::Goto(screen_x, screen_y));
             let p = Point::new(x, y);
             match state.closed.get(&p) {
                 Some(v) => match *v {
                     WALL_TILE => print!("#"),
                     _ => {
                         if oxygen_map.contains(&p) {
-                            print!("\x1b[44mO\x1b[0m");
+                            print!("{}O{}", color::Bg(color::Blue), style::Reset)
                         } else {
                             print!(".");
                         }
@@ -332,12 +348,14 @@ fn draw_map(
                 },
                 None => print!(" "),
             }
-        }
-        println!("");
-    }
-    println!("");
 
-    std::thread::sleep(std::time::Duration::from_millis(50));
+            screen_x += 1;
+        }
+
+        screen_y += 1;
+    }
+
+    std::thread::sleep(std::time::Duration::from_millis(5));
 }
 
 fn draw_noop(

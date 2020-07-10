@@ -8,6 +8,7 @@ edition = "2018"
 
 [dependencies]
 clap = "2.33.1"
+termion = "1.5.5"
 
 [dependencies.intcode]
 path = "../intcode"
