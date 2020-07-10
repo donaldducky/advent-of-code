@@ -1,6 +1,6 @@
 use std::fs;
-use std::sync::mpsc::Sender;
 use std::sync::mpsc::Receiver;
+use std::sync::mpsc::Sender;
 
 pub struct CPU {
     id: String,
@@ -37,10 +37,10 @@ enum Op {
     LessThan,
     Equals,
     RelativeBase,
-    Quit
+    Quit,
 }
 
-#[derive(Copy,Clone)]
+#[derive(Copy, Clone)]
 enum Mode {
     Position,
     Immediate,
@@ -80,23 +80,44 @@ impl CPU {
 
             match ins.op {
                 Op::Add => {
-                    let p1 = Parameter { value: self.at(self.ip + 1), mode: *ins.mode(0) };
-                    let p2 = Parameter { value: self.at(self.ip + 2), mode: *ins.mode(1) };
-                    let p3 = Parameter { value: self.at(self.ip + 3), mode: *ins.mode(2) };
+                    let p1 = Parameter {
+                        value: self.at(self.ip + 1),
+                        mode: *ins.mode(0),
+                    };
+                    let p2 = Parameter {
+                        value: self.at(self.ip + 2),
+                        mode: *ins.mode(1),
+                    };
+                    let p3 = Parameter {
+                        value: self.at(self.ip + 3),
+                        mode: *ins.mode(2),
+                    };
 
                     self.set(self.read_pointer(p3), self.read(p1) + self.read(p2));
                     self.incr(4);
-                },
+                }
                 Op::Mul => {
-                    let p1 = Parameter { value: self.at(self.ip + 1), mode: *ins.mode(0) };
-                    let p2 = Parameter { value: self.at(self.ip + 2), mode: *ins.mode(1) };
-                    let p3 = Parameter { value: self.at(self.ip + 3), mode: *ins.mode(2) };
+                    let p1 = Parameter {
+                        value: self.at(self.ip + 1),
+                        mode: *ins.mode(0),
+                    };
+                    let p2 = Parameter {
+                        value: self.at(self.ip + 2),
+                        mode: *ins.mode(1),
+                    };
+                    let p3 = Parameter {
+                        value: self.at(self.ip + 3),
+                        mode: *ins.mode(2),
+                    };
 
                     self.set(self.read_pointer(p3), self.read(p1) * self.read(p2));
                     self.incr(4);
-                },
+                }
                 Op::In => {
-                    let p1 = Parameter { value: self.at(self.ip + 1), mode: *ins.mode(0) };
+                    let p1 = Parameter {
+                        value: self.at(self.ip + 1),
+                        mode: *ins.mode(0),
+                    };
 
                     self.print(format!("Waiting for input"));
 
@@ -104,17 +125,26 @@ impl CPU {
                         Ok(_) => (),
                         Err(e) => self.print(format!("Send error {}", e)),
                     }
-                    let input = match rx.recv().unwrap() {
-                        Cmd::Input(val) => val,
-                        _ => panic!("Unexpected command, expected Input"),
+                    let input = match rx.recv() {
+                        Ok(cmd) => match cmd {
+                            Cmd::Input(val) => val,
+                            _ => panic!("Unexpected command, expected Input"),
+                        },
+                        Err(_) => {
+                            self.print(format!("The other side probably hung up, let's halt"));
+                            break;
+                        }
                     };
                     self.print(format!("Got {}", input));
 
                     self.set(self.read_pointer(p1), input);
                     self.incr(2);
-                },
+                }
                 Op::Out => {
-                    let p1 = Parameter { value: self.at(self.ip + 1), mode: *ins.mode(0) };
+                    let p1 = Parameter {
+                        value: self.at(self.ip + 1),
+                        mode: *ins.mode(0),
+                    };
                     output = self.read(p1);
 
                     self.print(format!("Sending output {}", output));
@@ -122,35 +152,56 @@ impl CPU {
                         Ok(_) => (),
                         Err(e) => {
                             self.print(format!("Send error {}", e));
-                        },
+                        }
                     };
 
                     self.incr(2);
-                },
+                }
                 Op::JumpTrue => {
-                    let p1 = Parameter { value: self.at(self.ip + 1), mode: *ins.mode(0) };
-                    let p2 = Parameter { value: self.at(self.ip + 2), mode: *ins.mode(1) };
+                    let p1 = Parameter {
+                        value: self.at(self.ip + 1),
+                        mode: *ins.mode(0),
+                    };
+                    let p2 = Parameter {
+                        value: self.at(self.ip + 2),
+                        mode: *ins.mode(1),
+                    };
 
                     if self.read(p1) != 0 {
                         self.ip = self.read(p2) as usize;
                     } else {
                         self.incr(3);
                     }
-                },
+                }
                 Op::JumpFalse => {
-                    let p1 = Parameter { value: self.at(self.ip + 1), mode: *ins.mode(0) };
-                    let p2 = Parameter { value: self.at(self.ip + 2), mode: *ins.mode(1) };
+                    let p1 = Parameter {
+                        value: self.at(self.ip + 1),
+                        mode: *ins.mode(0),
+                    };
+                    let p2 = Parameter {
+                        value: self.at(self.ip + 2),
+                        mode: *ins.mode(1),
+                    };
 
                     if self.read(p1) == 0 {
                         self.ip = self.read(p2) as usize;
                     } else {
                         self.incr(3);
                     }
-                },
+                }
                 Op::LessThan => {
-                    let p1 = Parameter { value: self.at(self.ip + 1), mode: *ins.mode(0) };
-                    let p2 = Parameter { value: self.at(self.ip + 2), mode: *ins.mode(1) };
-                    let p3 = Parameter { value: self.at(self.ip + 3), mode: *ins.mode(2) };
+                    let p1 = Parameter {
+                        value: self.at(self.ip + 1),
+                        mode: *ins.mode(0),
+                    };
+                    let p2 = Parameter {
+                        value: self.at(self.ip + 2),
+                        mode: *ins.mode(1),
+                    };
+                    let p3 = Parameter {
+                        value: self.at(self.ip + 3),
+                        mode: *ins.mode(2),
+                    };
 
                     if self.read(p1) < self.read(p2) {
                         self.set(self.read_pointer(p3), 1);
@@ -159,11 +210,20 @@ impl CPU {
                     }
 
                     self.incr(4);
-                },
+                }
                 Op::Equals => {
-                    let p1 = Parameter { value: self.at(self.ip + 1), mode: *ins.mode(0) };
-                    let p2 = Parameter { value: self.at(self.ip + 2), mode: *ins.mode(1) };
-                    let p3 = Parameter { value: self.at(self.ip + 3), mode: *ins.mode(2) };
+                    let p1 = Parameter {
+                        value: self.at(self.ip + 1),
+                        mode: *ins.mode(0),
+                    };
+                    let p2 = Parameter {
+                        value: self.at(self.ip + 2),
+                        mode: *ins.mode(1),
+                    };
+                    let p3 = Parameter {
+                        value: self.at(self.ip + 3),
+                        mode: *ins.mode(2),
+                    };
 
                     if self.read(p1) == self.read(p2) {
                         self.set(self.read_pointer(p3), 1);
@@ -172,20 +232,23 @@ impl CPU {
                     }
 
                     self.incr(4);
-                },
+                }
                 Op::RelativeBase => {
-                    let p1 = Parameter { value: self.at(self.ip + 1), mode: *ins.mode(0) };
+                    let p1 = Parameter {
+                        value: self.at(self.ip + 1),
+                        mode: *ins.mode(0),
+                    };
 
                     self.relative_base += self.read(p1);
 
                     self.incr(2);
-                },
+                }
                 Op::Quit => {
                     match tx.send(Cmd::Halt()) {
                         Ok(_) => (),
                         Err(e) => {
                             self.print(format!("Send error when trying to halt {}", e));
-                        },
+                        }
                     }
                     break;
                 }
@@ -208,20 +271,18 @@ impl CPU {
             8 => Op::Equals,
             9 => Op::RelativeBase,
             99 => Op::Quit,
-            _ => panic!("parse_op: unknown opcode {}", opcode)
+            _ => panic!("parse_op: unknown opcode {}", opcode),
         };
 
         let modes = (instruction_code / 100)
             .to_string()
             .chars()
             .rev()
-            .map(|d| {
-                match d {
-                    '0' => Mode::Position,
-                    '1' => Mode::Immediate,
-                    '2' => Mode::Relative,
-                    _ => panic!("Unknown mode {}", d),
-                }
+            .map(|d| match d {
+                '0' => Mode::Position,
+                '1' => Mode::Immediate,
+                '2' => Mode::Relative,
+                _ => panic!("Unknown mode {}", d),
             })
             .collect();
 
@@ -274,7 +335,8 @@ impl CPU {
 pub fn read_program(file: &str) -> Vec<i128> {
     let input = fs::read_to_string(file).unwrap();
 
-    let int_codes: Vec<i128> = input.trim()
+    let int_codes: Vec<i128> = input
+        .trim()
         .split(",")
         .map(|i| i.parse::<i128>().unwrap())
         .collect();
