@@ -1,3 +1,6 @@
+extern crate clap;
+
+use clap::{App, Arg};
 use intcode;
 use intcode::Cmd;
 use intcode::CPU;
@@ -162,12 +165,47 @@ impl DroidState {
     }
 }
 
+const APP_NAME: &'static str = env!("CARGO_PKG_NAME");
+const APP_VERSION: &'static str = env!("CARGO_PKG_VERSION");
+
 fn main() {
-    let filename = "input.txt";
+    let matches = App::new(APP_NAME)
+        .version(APP_VERSION)
+        .author(env!("CARGO_PKG_AUTHORS"))
+        .about(&*format!("Advent of Code: {}", APP_NAME))
+        .arg(
+            Arg::with_name("input-file")
+                .help("input file to run against")
+                .index(1)
+                .default_value("input.txt"),
+        )
+        .arg(
+            Arg::with_name("part-1")
+                .help("Run part 1 only")
+                .short("1")
+                .long("1")
+                .conflicts_with("part-2"),
+        )
+        .arg(
+            Arg::with_name("part-2")
+                .help("Run part 2 only")
+                .short("2")
+                .long("2")
+                .conflicts_with("part-1"),
+        )
+        .get_matches();
+
+    let filename = matches.value_of("input-file").unwrap();
     let program = intcode::read_program(filename);
 
-    println!("Part 1: {}", part1(program.clone()));
-    println!("Part 2: {}", part2(program.clone()));
+    if matches.is_present("part-1") {
+        println!("{}", part1(program.clone()));
+    } else if matches.is_present("part-2") {
+        println!("{}", part2(program.clone()));
+    } else {
+        println!("Part 1: {}", part1(program.clone()));
+        println!("Part 2: {}", part2(program.clone()));
+    }
 }
 
 fn part1(program: Vec<i128>) -> usize {
