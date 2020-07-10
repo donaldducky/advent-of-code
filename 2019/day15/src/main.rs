@@ -84,6 +84,7 @@ struct DroidState {
     closed: HashMap<Point, i64>,
     path: Vec<Direction>,
     direction: Direction,
+    oxygen_tank: Option<Point>,
 }
 
 impl DroidState {
@@ -95,6 +96,7 @@ impl DroidState {
             closed: HashMap::new(),
             path: vec![],
             direction: Direction::None,
+            oxygen_tank: None,
         };
 
         state.visit(start, 0);
@@ -169,6 +171,60 @@ fn main() {
 }
 
 fn part1(program: Vec<i128>) -> usize {
+    let state = explore(program, false);
+
+    state.path.len()
+}
+
+fn part2(program: Vec<i128>) -> usize {
+    let state = explore(program, true);
+
+    //state.draw();
+    //println!("Exploring complete! Oxygen tank at {:?}", oxygen_tank);
+
+    // ok let's flood fill the oxygen
+    let mut j = 0;
+
+    // Insert all of the non-wall locations into a HashMap.
+    // We can use this to determine if any spaces still need oxygen.
+    // If the Point exists in the map, oxygen has not filled that location.
+    let mut to_fill: HashMap<Point, i64> = state
+        .closed
+        .clone()
+        .iter()
+        .filter(|(_p, v)| **v != WALL_TILE)
+        .fold(HashMap::new(), |mut acc, (p, v)| {
+            acc.insert(p.clone(), *v);
+            acc
+        });
+
+    let mut open: Vec<Point> = vec![state.oxygen_tank.unwrap()];
+    while open.len() > 0 {
+        let mut next: Vec<Point> = vec![];
+
+        while open.len() > 0 {
+            let current = open.pop().unwrap();
+            let filtered: Vec<Point> = current
+                .expand()
+                .iter()
+                .filter(|(p, _d)| to_fill.contains_key(p))
+                .map(|(p, _d)| p.clone())
+                .collect();
+            filtered.iter().for_each(|p| {
+                to_fill.remove(p);
+            });
+            next.extend(filtered);
+        }
+        open = next;
+
+        j += 1;
+    }
+
+    // do not count initial oxygen location
+    j - 1
+}
+
+fn explore(program: Vec<i128>, entire_map: bool) -> DroidState {
     let mut cpu = CPU::new("day15".to_string(), program);
 
     let (cpu_tx, robot_rx) = mpsc::channel();
@@ -209,8 +265,11 @@ fn part1(program: Vec<i128>) -> usize {
                                 //state.draw();
                                 //println!("\x1b[31mFound Oxygen!\x1b[0m @{:?}", state.position);
                                 //println!("Took {} steps", state.path.len());
+                                state.oxygen_tank = Some(state.position);
                                 state.visit(state.position, OXYGEN_TILE);
-                                break;
+                                if !entire_map {
+                                    break;
+                                }
                             }
                             _ => panic!("Unknown output response {}", out),
                         }
@@ -218,89 +277,6 @@ fn part1(program: Vec<i128>) -> usize {
                         if i > max_i - 100 {
                             println!("<- {:<10} {:?}", out, state);
                         }
-                        if i % 10 == 0 {
-                            //state.draw();
-                        }
-                    }
-                    Cmd::RequestInput() => {
-                        let d = state.get_next_direction();
-                        state.direction = d;
-                        state.position = state.position.add(state.direction.to_point());
-                        if !state.is_visited(state.position) {
-                            state.path.push(d);
-                        }
-
-                        robot_tx.send(Cmd::Input(d as i128)).unwrap();
-
-                        if i > max_i - 10 {
-                            println!("-> {:<10} {:?}", format!("{:?}", state.direction), state);
-                        }
-                    }
-                    _ => panic!("Unhandled command"),
-                }
-
-                if i == max_i {
-                    panic!("Quitting after {} iterations", i);
-                }
-            }
-
-            state.path.len()
-        })
-        .unwrap();
-
-    cpu_handle.join().unwrap();
-    robot_handle.join().unwrap()
-}
-
-fn part2(program: Vec<i128>) -> usize {
-    let mut cpu = CPU::new("day15".to_string(), program);
-
-    let (cpu_tx, robot_rx) = mpsc::channel();
-    let (robot_tx, cpu_rx) = mpsc::channel();
-
-    let cpu_handle = thread::Builder::new()
-        .name("cpu".to_string())
-        .spawn(move || {
-            cpu.run(&cpu_tx, &cpu_rx);
-        })
-        .unwrap();
-
-    let robot_handle = thread::Builder::new()
-        .name("robot".to_string())
-        .spawn(move || {
-            let mut i = 0;
-
-            let mut state = DroidState::new();
-            // set dummy initial value
-            let mut oxygen_tank = Point::new(0, 0);
-
-            loop {
-                i += 1;
-
-                match robot_rx.recv().unwrap() {
-                    Cmd::Halt() => break,
-                    Cmd::Output(out) => {
-                        match out {
-                            0 => {
-                                state.visit(state.position, WALL_TILE);
-                                state.position =
-                                    state.position.add(state.direction.reverse().to_point());
-                                state.path.pop();
-                            }
-                            1 => {
-                                state.visit(state.position, state.path.len() as i64);
-                            }
-                            2 => {
-                                //state.draw();
-                                //println!("\x1b[31mFound Oxygen!\x1b[0m @{:?}", state.position);
-                                //println!("Took {} steps", state.path.len());
-                                oxygen_tank = state.position;
-                                state.visit(state.position, OXYGEN_TILE);
-                                //break;
-                            }
-                            _ => panic!("Unknown output response {}", out),
-                        }
-
                         if i % 10 == 0 {
                             //state.draw();
                         }
@@ -324,48 +300,13 @@ fn part2(program: Vec<i128>) -> usize {
                     }
                     _ => panic!("Unhandled command"),
                 }
-            }
 
-            //state.draw();
-            //println!("Exploring complete! Oxygen tank at {:?}", oxygen_tank);
-
-            // ok let's flood fill the oxygen
-            let mut j = 0;
-            let mut to_fill: HashMap<Point, i64> = state
-                .closed
-                .clone()
-                .iter()
-                .filter(|(_p, v)| **v != WALL_TILE)
-                .fold(HashMap::new(), |mut acc, (p, v)| {
-                    acc.insert(p.clone(), *v);
-                    acc
-                });
-            let mut open: Vec<Point> = vec![oxygen_tank];
-            while open.len() > 0 {
-                let mut next: Vec<Point> = vec![];
-
-                while open.len() > 0 {
-                    let current = open.pop().unwrap();
-                    //println!("Current: {:?}", current);
-                    let filtered: Vec<Point> = current
-                        .expand()
-                        .iter()
-                        .filter(|(p, _d)| to_fill.contains_key(p))
-                        .map(|(p, _d)| p.clone())
-                        .collect();
-                    filtered.iter().for_each(|p| {
-                        to_fill.remove(p);
-                    });
-                    next.extend(filtered);
-
-                    //println!("Expand: {:?}", next);
+                if i == max_i {
+                    panic!("Quitting after {} iterations", i);
                 }
-                open = next;
-
-                j += 1;
             }
 
-            j - 1
+            state
         })
         .unwrap();
 
