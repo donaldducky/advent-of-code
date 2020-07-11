@@ -7,6 +7,7 @@ use intcode::Cmd;
 use intcode::CPU;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::io::{self, Write};
 use std::sync::mpsc;
 use std::thread;
 use termion::{clear, color, cursor, style};
@@ -168,6 +169,15 @@ impl DroidState {
     }
 }
 
+struct DrawingData<'a> {
+    oxygen_map: &'a mut HashSet<Point>,
+    new_items: &'a mut HashSet<Point>,
+    min_x: i128,
+    max_x: i128,
+    min_y: i128,
+    max_y: i128,
+}
+
 const APP_NAME: &'static str = env!("CARGO_PKG_NAME");
 const APP_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
@@ -227,7 +237,7 @@ fn part1(program: Vec<i128>) -> usize {
 fn part2(program: Vec<i128>, do_animate: bool) -> usize {
     let state = explore(program, true);
 
-    let draw_fn: &dyn Fn(&DroidState, &HashSet<Point>, i128, i128, i128, i128) -> () =
+    let draw_fn: &dyn Fn(&DroidState, &DrawingData) -> () =
         if do_animate { &draw_map } else { &draw_noop };
 
     let (min_x, max_x, min_y, max_y): (i128, i128, i128, i128) = if do_animate {
@@ -255,11 +265,19 @@ fn part2(program: Vec<i128>, do_animate: bool) -> usize {
         (0, 0, 0, 0)
     };
 
-    let mut oxygen_map: HashSet<Point> = HashSet::new();
+    let drawing_data = DrawingData {
+        oxygen_map: &mut HashSet::new(),
+        new_items: &mut HashSet::new(),
+        min_x: min_x,
+        max_x: max_x,
+        min_y: min_y,
+        max_y: max_y,
+    };
 
     if do_animate {
         print!("{}", clear::All);
         print!("{}", cursor::Hide);
+        draw_fn(&state, &drawing_data);
     }
 
     //state.draw();
@@ -295,14 +313,16 @@ fn part2(program: Vec<i128>, do_animate: bool) -> usize {
                 .collect();
             filtered.iter().for_each(|p| {
                 to_fill.remove(p);
-                oxygen_map.insert(p.clone());
+                drawing_data.oxygen_map.insert(p.clone());
+                drawing_data.new_items.insert(p.clone());
             });
             next.extend(filtered);
         }
         open = next;
 
         if do_animate {
-            draw_fn(&state, &oxygen_map, min_x, max_x, min_y, max_y);
+            draw_fn(&state, &drawing_data);
+            drawing_data.new_items.clear();
         }
 
         j += 1;
@@ -318,55 +338,55 @@ fn part2(program: Vec<i128>, do_animate: bool) -> usize {
     j - 1
 }
 
-fn draw_map(
-    state: &DroidState,
-    oxygen_map: &HashSet<Point>,
-    min_x: i128,
-    max_x: i128,
-    min_y: i128,
-    max_y: i128,
-) {
+fn draw_map(state: &DroidState, drawing_data: &DrawingData) {
     // better to draw on top of characters so it doesn't blink
     // This is the way.
 
-    let mut screen_y = 1;
-    for y in min_y..=max_y {
-        let mut screen_x = 1;
-        for x in min_x..=max_x {
+    if drawing_data.new_items.len() > 0 {
+        let w = (drawing_data.max_x - drawing_data.min_x) / 2;
+        let h = (drawing_data.max_y - drawing_data.min_y) / 2;
+
+        drawing_data.new_items.iter().for_each(|p| {
+            let screen_x = (p.x + w) as u16;
+            let screen_y = (p.y + h) as u16;
             print!("{}", cursor::Goto(screen_x, screen_y));
-            let p = Point::new(x, y);
-            match state.closed.get(&p) {
-                Some(v) => match *v {
-                    WALL_TILE => print!("#"),
-                    _ => {
-                        if oxygen_map.contains(&p) {
-                            print!("{}O{}", color::Bg(color::Blue), style::Reset)
-                        } else {
-                            print!(".");
+            print!("{}O{}", color::Bg(color::Blue), style::Reset);
+            // stdout is line buffered, so we need to flush it
+            // using println!("") also works
+            io::stdout().flush().unwrap();
+        });
+    } else {
+        let mut screen_y = 1;
+        for y in drawing_data.min_y..=drawing_data.max_y {
+            let mut screen_x = 1;
+            for x in drawing_data.min_x..=drawing_data.max_x {
+                print!("{}", cursor::Goto(screen_x, screen_y));
+                let p = Point::new(x, y);
+                match state.closed.get(&p) {
+                    Some(v) => match *v {
+                        WALL_TILE => print!("#"),
+                        _ => {
+                            if drawing_data.oxygen_map.contains(&p) {
+                                print!("{}O{}", color::Bg(color::Blue), style::Reset)
+                            } else {
+                                print!(".");
+                            }
                         }
-                    }
-                },
-                None => print!(" "),
+                    },
+                    None => print!(" "),
+                }
+
+                screen_x += 1;
             }
 
-            screen_x += 1;
+            screen_y += 1;
         }
-
-        screen_y += 1;
     }
 
-    std::thread::sleep(std::time::Duration::from_millis(5));
+    std::thread::sleep(std::time::Duration::from_millis(50));
 }
 
-fn draw_noop(
-    _state: &DroidState,
-    _open: &HashSet<Point>,
-    _min_x: i128,
-    _max_x: i128,
-    _min_y: i128,
-    _max_y: i128,
-) {
-}
+fn draw_noop(_state: &DroidState, _drawing_data: &DrawingData) {}
 
 fn explore(program: Vec<i128>, entire_map: bool) -> DroidState {
     let mut cpu = CPU::new("day15".to_string(), program);
