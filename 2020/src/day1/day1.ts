@@ -1,15 +1,15 @@
-import * as fs from "fs";
-import * as path from "path";
+import * as fs from 'fs';
+import * as path from 'path';
 
 const nums = fs
-  .readFileSync(path.join(__dirname, "input.txt"), "utf8")
+  .readFileSync(path.join(__dirname, 'input.txt'), 'utf8')
   .toString()
   .trim()
-  .split("\n")
+  .split('\n')
   .map((i) => parseInt(i, 10));
 
-console.log("Part 1:", part1(nums));
-console.log("Part 2:", part2(nums));
+console.log('Part 1:', part1(nums));
+console.log('Part 2:', part2(nums));
 
 function part1(nums) {
   const numMap = nums.reduce((acc, n) => acc.add(n), new Set());
