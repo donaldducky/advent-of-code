@@ -18,20 +18,18 @@ function part2(lines) {
   const seatIds = lines.map(genId);
   seatIds.sort((a, b) => a - b);
 
-  for (let i = 0; i < seatIds.length; i++) {
-    if (seatIds[i] + 1 != seatIds[i + 1]) {
-      return seatIds[i] + 1;
-    }
-  }
-
-  throw new Error('failed');
+  return (
+    seatIds.find((id, i) => {
+      return id + 1 != seatIds[i + 1];
+    }) + 1
+  );
 }
 
 function genId(line) {
   const parts = line.split('');
 
-  let [row] = binarySearch(parts.slice(0, 7), 127, 'F');
-  let [, col] = binarySearch(parts.slice(7, 10), 7, 'L');
+  let row = binarySearch(parts.slice(0, 7), 127, 'F');
+  let col = binarySearch(parts.slice(7, 10), 7, 'L');
 
   return row * 8 + col;
 }
@@ -47,5 +45,5 @@ function binarySearch(input, upper, loChar) {
     }
   });
 
-  return [min, max];
+  return min;
 }
