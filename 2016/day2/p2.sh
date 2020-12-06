@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# initialize coordinates for keypad
+# split on empty string to iterate over each character
+# move to the next number, if within bounds
+# after processing a line, append the number to the code
 awk 'BEGIN { code=""; x=-2; y=0 }
   {
     nums[0,2] = 1;

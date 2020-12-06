@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# break input into newlines
+# split each line into fields (ie. L10 -> L 10)
+# calculate angle based on direction turned
+# ensure angle is positive
+# travel distance based on angle
+# calculate distance using absolute values (awk doesn't have abs so do it by hand sqrt(n^2))
 perl -pe 's/, /\n/g' input.txt \
   | perl -pe 's/([LR])([0-9])/\1 \2/' \
   | awk 'BEGIN { x = 0; y = 0; d = 90 }
