@@ -26,14 +26,12 @@ function part1(input) {
   let colors = new Set();
   // initialize to empty in case no bags can carry shiny gold (ie. sample2.txt)
   let open = reverse['shiny gold'] ?? [];
-  delete reverse['shiny gold'];
   while (open.length) {
     const [c] = open.pop();
     colors.add(c);
     if (c in reverse) {
       open = open.concat(reverse[c]);
     }
-    delete reverse[c];
   }
 
   return colors.size;
@@ -59,14 +57,13 @@ function part2(input) {
 
 function parse(input) {
   return input
-    .replace(/ bags?\.?/g, '')
-    .replace(/no other/g, '')
     .split('\n')
-    .map(x => x.split(/ contain /))
-    .map(x => [
-      x[0],
-      x[1] != ''
-        ? x[1].split(', ').map(x => x.match(/(\d) (.*)/).slice(1))
-        : [],
+    .map(x => x.split(/ bags contain /))
+    .map(([l, r]) => [
+      l,
+      // r.matchAll creates an iterator, which cannot be spread unless downlevelIteration is on in tsconfig
+      // allows removing Array.from(...)
+      //[...Array.from(r.matchAll(/(\d+) ([^,.]+) bags?[,.]/g))].map(x => [
+      [...r.matchAll(/(\d+) ([^,.]+) bags?[,.]/g)].map(x => x.slice(1)),
     ]);
 }
