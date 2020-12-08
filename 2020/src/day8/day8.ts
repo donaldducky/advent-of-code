@@ -5,87 +5,62 @@ let file = 'input.txt';
 //file = 'sample.txt';
 //file = 'sample2.txt';
 
-const input = fs
+const lines = fs
   .readFileSync(path.join(__dirname, file), 'utf8')
   .toString()
-  .trim();
-
-const lines = input
+  .trim()
   .split('\n')
-  .map(l => l.split(' '))
-  .map(x => [x[0], parseInt(x[1], 10)]);
+  .map(l => l.split(' '));
 
-let acc = 0;
-let i = 0;
-let seen = new Set();
+console.log('Part 1:', part1(lines));
+console.log('Part 2:', part2(lines));
 
-while (!seen.has(i)) {
-  seen.add(i);
-  const [op, v] = lines[i];
-  switch (op) {
-    case 'acc':
-      acc += +v;
-      i++;
-      break;
-    case 'nop':
-      i++;
-      break;
-    case 'jmp':
-      i += +v;
-      break;
-  }
-  if (i === lines.length) {
-    break;
+function part1(lines) {
+  return run(lines)[0];
+}
+
+function part2(lines) {
+  for (let i = 0; i < lines.length; i++) {
+    let [op] = lines[i];
+    if (!['jmp', 'nop'].includes(op)) {
+      continue;
+    }
+    // using [...lines] is a shallow clone...all the elements are references
+    // ie. changing ops[i][0] = 'jmp' will modify it in lines and require resetting
+    // deep clone array, is there a better way? this json business is slow
+    let ops = JSON.parse(JSON.stringify(lines));
+    ops[i][0] = op == 'jmp' ? 'nop' : 'jmp';
+    const [acc, ip] = run(ops);
+    if (ip >= ops.length) {
+      return acc;
+    }
   }
 }
 
-let p1 = acc;
+function run(ops) {
+  let acc = 0;
+  let ip = 0;
+  let seen = new Set();
 
-console.log('Part 1:', p1);
-
-let lastFlip;
-
-while (!(i == lines.length)) {
-  i = 0;
-  acc = 0;
-  seen = new Set();
-
-  for (let j = lastFlip ?? 0; j < lines.length; j++) {
-    if (j === lastFlip) continue;
-    if (lines[j][0] === 'nop') {
-      lines[j][0] = 'jmp';
-      lastFlip = j;
-      break;
-    } else if (lines[j][0] === 'jmp') {
-      lines[j][0] = 'nop';
-      lastFlip = j;
-      break;
-    }
-  }
-
-  while (!seen.has(i)) {
-    seen.add(i);
-    const [op, v] = lines[i];
+  while (!seen.has(ip)) {
+    seen.add(ip);
+    const [op, v] = ops[ip];
     switch (op) {
       case 'acc':
         acc += +v;
-        i++;
+        ip++;
         break;
       case 'nop':
-        i++;
+        ip++;
         break;
       case 'jmp':
-        i += +v;
+        ip += +v;
         break;
     }
-    if (i === lines.length) {
+    if (ip >= ops.length) {
       break;
     }
   }
 
-  lines[lastFlip][0] = lines[lastFlip][0] == 'jmp' ? 'nop' : 'jmp';
+  return [acc, ip];
 }
-
-let p2 = acc;
-
-console.log('Part 2:', p2);

@@ -64,6 +64,6 @@ function parse(input) {
       // r.matchAll creates an iterator, which cannot be spread unless downlevelIteration is on in tsconfig
       // allows removing Array.from(...)
       //[...Array.from(r.matchAll(/(\d+) ([^,.]+) bags?[,.]/g))].map(x => [
-      [...r.matchAll(/(\d+) ([^,.]+) bags?[,.]/g)].map(x => x.slice(1)),
+      [...r.matchAll(/(\d+) ([^,.]+) bag/g)].map(x => x.slice(1)),
     ]);
 }
