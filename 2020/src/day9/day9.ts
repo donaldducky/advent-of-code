@@ -14,12 +14,17 @@ const lines = fs
   .split('\n')
   .map(n => +n);
 
-let target = part1(lines, preamble);
-console.log('Part 1:', target);
-console.log('Part 2:', part2(lines, preamble, target));
+let p1 = part1(lines, preamble);
+console.log('Part 1:', p1);
+let p2 = part2(lines, preamble, p1);
+console.log('Part 2:', p2);
 
 function part1(lines, preamble) {
-  return find(lines, preamble);
+  return lines.find((n, i) => {
+    if (i < preamble) return false;
+    let v = lines.slice(i - preamble, i);
+    return !v.find(a => v.filter(b => a !== b).find(b => a + b == lines[i]));
+  });
 }
 
 function part2(lines, preamble, target) {
@@ -38,28 +43,4 @@ function part2(lines, preamble, target) {
   }
 
   return target;
-}
-
-function find(lines, preamble) {
-  for (let i = 0; i < lines.length - preamble; i++) {
-    //console.log(i, lines[i], lines.slice(i, i + preamble), lines[i + preamble]);
-    let target = lines[i + preamble];
-    let consider = lines.slice(i, i + preamble);
-    //console.log(consider, target);
-    const found = consider.find(n => {
-      let s = new Set();
-      s.add(n);
-      return consider.find(m => {
-        if (s.has(m)) {
-          return;
-        }
-        s.add(m);
-        //console.log(n, m, n + m);
-        return n + m == target;
-      });
-    });
-    if (!found) {
-      return target;
-    }
-  }
 }
