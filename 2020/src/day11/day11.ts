@@ -1,9 +1,20 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-let file = 'input.txt';
-//file = 'sample.txt';
-//file = 'sample2.txt';
+const DIRS = [
+  [0, 1],
+  [0, -1],
+  [1, 0],
+  [-1, 0],
+  [1, 1],
+  [1, -1],
+  [-1, 1],
+  [-1, -1],
+];
+
+let file;
+file = 'sample.txt';
+file = 'input.txt';
 
 const lines = fs
   .readFileSync(path.join(__dirname, file), 'utf8')
@@ -18,80 +29,35 @@ let p2 = part2(lines);
 console.log('Part 2:', p2);
 
 function part1(lines) {
-  let hash = lines.map(n => n.join('')).join('');
-  let prevHash;
-  while (prevHash !== hash) {
-    let newLines = [];
-    for (let i = 0; i < lines.length; i++) {
-      newLines[i] = [];
-      for (let j = 0; j < lines[i].length; j++) {
-        let s = lines[i][j];
-        let n = adj(lines, i, j);
-        switch (s) {
-          case 'L':
-            if (n == 0) {
-              newLines[i][j] = '#';
-            } else {
-              newLines[i][j] = 'L';
-            }
-            break;
-          case '#':
-            if (n >= 4) {
-              newLines[i][j] = 'L';
-            } else {
-              newLines[i][j] = '#';
-            }
-            break;
-          default:
-            newLines[i][j] = '.';
-        }
-      }
-    }
-    prevHash = hash;
-    hash = newLines.map(n => n.join('')).join('');
-    lines = newLines;
-  }
-
-  return hash
-    .split('')
-    .filter(c => c == '#')
-    .join('').length;
+  return countSeats(lines, 4, adj);
 }
 
 function part2(lines) {
+  return countSeats(lines, 5, adj2);
+}
+
+function countSeats(lines, nOccupied, adjFn) {
   let hash = lines.map(n => n.join('')).join('');
   let prevHash;
   while (prevHash !== hash) {
     //console.log(lines.map(l => l.join('')).join('\n') + '\n');
-    let newLines = [];
-    for (let i = 0; i < lines.length; i++) {
-      newLines[i] = [];
-      for (let j = 0; j < lines[i].length; j++) {
-        let s = lines[i][j];
-        let n = adj2(lines, i, j);
-        switch (s) {
-          case 'L':
-            if (n == 0) {
-              newLines[i][j] = '#';
-            } else {
-              newLines[i][j] = 'L';
-            }
-            break;
-          case '#':
-            if (n >= 5) {
-              newLines[i][j] = 'L';
-            } else {
-              newLines[i][j] = '#';
-            }
-            break;
-          default:
-            newLines[i][j] = '.';
+    // technically can get away without the stringify/parse since it's an array of numbers
+    // but if we were using objects, we would need to parse/stringify to do a deep copy
+    //lines = JSON.parse(JSON.stringify(lines)).map((line, i) => {
+    lines = lines.map((line, i) => {
+      return line.map((s, j) => {
+        let n = adjFn(lines, i, j);
+        if (s == 'L' && n == 0) {
+          return '#';
+        } else if (s == '#' && n >= nOccupied) {
+          return 'L';
         }
-      }
-    }
+
+        return s;
+      });
+    });
     prevHash = hash;
-    hash = newLines.map(n => n.join('')).join('');
-    lines = newLines;
+    hash = lines.map(n => n.join('')).join('');
   }
 
   return hash
@@ -101,29 +67,13 @@ function part2(lines) {
 }
 
 function adj(grid, x, y) {
-  return [
-    [x + 1, y + 1],
-    [x + 1, y],
-    [x + 1, y - 1],
-    [x, y - 1],
-    [x, y + 1],
-    [x - 1, y + 1],
-    [x - 1, y],
-    [x - 1, y - 1],
-  ].filter(([x, y]) => x in grid && y in grid[x] && grid[x][y] == '#').length;
+  return DIRS.map(([dx, dy]) => [dx + x, dy + y]).filter(
+    ([x, y]) => x in grid && y in grid[x] && grid[x][y] == '#'
+  ).length;
 }
 
 function adj2(grid, x, y) {
-  return [
-    [1, 1],
-    [1, 0],
-    [1, -1],
-    [0, 1],
-    [0, -1],
-    [-1, 1],
-    [-1, 0],
-    [-1, -1],
-  ].reduce((sum, [dx, dy]) => {
+  return DIRS.reduce((sum, [dx, dy]) => {
     let x2 = x + dx;
     let y2 = y + dy;
     while (x2 in grid && y2 in grid[x2]) {
