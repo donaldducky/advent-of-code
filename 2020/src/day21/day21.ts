@@ -61,15 +61,10 @@ let p2 = part2(allergens);
 console.log('Part 2:', p2);
 
 function part1(lines, allergens) {
-  let allIngredients = new Set([...lines.flatMap(x => x[0])]);
-  const notAllergens = new Set(
-    [...allIngredients].filter(x => !(x in allergens))
-  );
-
   return lines
     .map(x => x[0])
     .flat()
-    .filter(x => notAllergens.has(x)).length;
+    .filter(x => !(x in allergens)).length;
 }
 
 function part2(allergens) {
