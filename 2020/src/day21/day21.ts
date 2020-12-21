@@ -68,16 +68,8 @@ function part1(lines, allergens) {
 }
 
 function part2(allergens) {
-  let k = Object.entries(allergens);
-  k.sort((a, b) => {
-    if (a[1] > b[1]) {
-      return 1;
-    } else if (a[1] < b[1]) {
-      return -1;
-    }
-
-    return 0;
-  });
+  let k: [string, string][] = Object.entries(allergens);
+  k.sort((a, b) => a[1].localeCompare(b[1]));
 
   return k.map(x => x[0]).join(',');
 }
