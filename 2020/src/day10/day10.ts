@@ -40,10 +40,6 @@ function part1(lines) {
 }
 
 function part2(lines) {
-  lines.push(Math.max(...lines) + 3);
-  lines.push(0);
-  lines.sort((a, b) => a - b);
-
   return recurse(lines, 0);
 }
 
