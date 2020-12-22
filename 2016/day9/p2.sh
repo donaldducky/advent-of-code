@@ -29,7 +29,7 @@ echo "$in" | awk '
       m = substr(s[d], RSTART + 1, RLENGTH - 2)
       split(m, out, "x")
       r = substr(s[d], RLENGTH + RSTART, out[1])
-      save[d] = substr(s[d], RSTART + RLENGTH + out[1], length(s[d]))
+      s[d] = substr(s[d], RSTART + RLENGTH + out[1], length(s[d]))
       d++
       s[d] = r
       mx[d] = out[2] * mx[d-1]
@@ -37,9 +37,8 @@ echo "$in" | awk '
       size += length(s[d]) * mx[d]
       s[d] = ""
       d--
-      s[d] = save[d]
     }
-  } while (length(s[0]))
+  } while (d >= 0)
 
   print "Part 2:", size
 }'
