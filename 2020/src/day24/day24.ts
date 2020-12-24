@@ -53,15 +53,8 @@ function part1(lines) {
 function part2(lines) {
   let tiles = renovate(lines);
 
-  const coords = [...tiles.keys()].map(x => x.split(','));
-  const xs = coords.map(x => x[0]);
-  const ys = coords.map(x => x[1]);
-  const minX = Math.min(...xs);
-  const maxX = Math.max(...xs);
-  const minY = Math.min(...ys);
-  const maxY = Math.max(...ys);
   for (let i = 0; i < 100; i++) {
-    tiles = step(tiles, minX - i - 2, maxX + i + 2, minY - i - 2, maxY + i + 2);
+    tiles = step(tiles);
   }
 
   return tiles.size;
@@ -82,25 +75,27 @@ function renovate(lines) {
   }, new Set());
 }
 
-function step(tiles, x1, x2, y1, y2) {
-  let tiles2 = new Set();
-  for (let x = x1; x < x2; x++) {
-    for (let y = y1; y < y2; y++) {
-      let n = neighbours(x, y).filter(p => tiles.has(p.join(','))).length;
-      let t = [x, y].join(',');
-      if (tiles.has(t)) {
-        if (n === 1 || n === 2) {
-          tiles2.add(t);
+function step(tiles) {
+  const coords = [...tiles.keys()].map(x => x.split(',').map(x => +x));
+  return coords.reduce((s, [x, y]) => {
+    let n = neighbours(x, y);
+    n.push([x, y]);
+    n.forEach(([x, y]) => {
+      let c = neighbours(x, y).filter(p => tiles.has(p.join(','))).length;
+      let k = [x, y].join(',');
+      if (tiles.has(k)) {
+        if (c === 1 || c === 2) {
+          s.add(k);
         }
       } else {
-        if (n === 2) {
-          tiles2.add(t);
+        if (c === 2) {
+          s.add(k);
         }
       }
-    }
-  }
+    });
 
-  return tiles2;
+    return s;
+  }, new Set());
 }
 
 function move(x, y, d) {
