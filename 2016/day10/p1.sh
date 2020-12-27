@@ -5,8 +5,11 @@ fn="input.txt"
 
 <"$fn" awk '
 
+function add_instruction(bot_id, lo_dest, lo_id, high_dest, high_id) {
+  ins[bot_id] = lo_dest "," lo_id "," high_dest "," high_id
+}
+
 function give_bot(bot_id, val) {
-  print "give chip", val, "to bot", bot_id
   if (botn[bot_id] == 0) {
     bots[bot_id]=val
   } else {
@@ -14,17 +17,23 @@ function give_bot(bot_id, val) {
   }
   botn[bot_id]++
   if (botn[bot_id] == 2) {
-    if (has_two) {
-      has_two = has_two "," bot_id
-    } else {
-      has_two = bot_id
-    }
+    add_next_bot(bot_id)
   }
-  print "\tbot", bot_id, "chips:", bots[bot_id], "has two?", has_two
+}
+
+function has_next() {
+  return has_two != ""
+}
+
+function add_next_bot(bot_id) {
+  if (has_next()) {
+    has_two = has_two "," bot_id
+  } else {
+    has_two = bot_id
+  }
 }
 
 function give_output(out_id, val) {
-  print "give chip", val, "to output", out_id
   if (out[out_id]) {
     out[out_id] = out[out_id] "," val
   } else {
@@ -40,73 +49,61 @@ function get_instruction(bot_id, _o) {
   hi_v=_o[4]
 }
 
-function step(_chips, _lo, _hi, _twos) {
-  print ""
-  print has_two
+function next_bot(_twos) {
   split(has_two, _twos, ",")
   has_two=""
   for (i in _twos) {
     if (i != 1) {
-      if (has_two) {
-        has_two = has_two "," _twos[i]
-      } else {
-        has_two = _twos[i]
-      }
+      add_next_bot(_twos[i])
     }
   }
-  cur=_twos[1]
-  print "current bot", cur, "has_two", has_two
 
-  split(bots[cur], _chips, ",")
-  print "bot " cur " has two chips:", _chips[1], _chips[2]
-  get_instruction(cur)
-  #print lo_d, lo_v, hi_d, hi_v
+  return _twos[1]
+}
+
+function take_chips(bot_id, _chips) {
+  split(bots[bot_id], _chips, ",")
   if (_chips[1] > _chips[2]) {
-    _lo = _chips[2]
-    _hi = _chips[1]
+    lo = _chips[2]
+    hi = _chips[1]
   } else {
-    _hi = _chips[2]
-    _lo = _chips[1]
-  }
-  if (_chips[1] == 61 && _chips[2] == 17 || _chips[1] == 17 && _chips[2] == 61) {
-    print "Part 1:", cur
-    exit
+    hi = _chips[2]
+    lo = _chips[1]
   }
 
-  bots[cur]=""
-  botn[cur]=0
-  if (lo_d == "bot") {
-    give_bot(lo_v, _lo)
+  bots[bot_id]=""
+  botn[bot_id]=0
+}
+
+function give_chip(type, id, chip) {
+  if (type == "bot") {
+    give_bot(id, chip)
   } else {
-    give_output(lo_v, _lo)
-  }
-  if (hi_d == "bot") {
-    give_bot(hi_v, _hi)
-  } else {
-    give_output(hi_v, _hi)
+    give_output(id, chip)
   }
 }
 
-#{print}
-
 $1 == "value" { give_bot($6, $2) }
-
-$1 == "bot" { ins[$2]=$6 "," $7 "," $11 "," $12 }
+$1 == "bot" { add_instruction($2, $6, $7, $11, $12) }
 
 END {
-  j = 0
-  n = 1000
-  while (has_two >= 0) {
-    step()
-    j++
-    if (j > n) {
-      print "too many iterations, exiting"
+  while (has_next()) {
+    cur = next_bot()
+
+    # sets lo_d, lo_v, hi_d, hi_v
+    get_instruction(cur)
+
+    # sets lo, hi
+    # clears chips from bots
+    take_chips(cur)
+
+    if (lo == 61 && hi == 17 || lo == 17 && hi == 61) {
+      print "Part 1:", cur
       exit
     }
-  }
 
-  for (i in out) {
-    print "output", i, "contains", out[i]
+    give_chip(lo_d, lo_v, lo)
+    give_chip(hi_d, hi_v, hi)
   }
 }
 '
