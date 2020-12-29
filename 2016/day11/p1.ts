@@ -28,7 +28,7 @@ let edges = getEdges(state);
 //console.log(inspect(edges, false, null, true));
 
 const n = floors.length;
-let goal: State = [n - 1, new Array(n).fill([])]
+let goal: State = [n - 1, new Array(n).fill([])];
 goal[1][n - 1] = floors.flat();
 
 //console.log(hashState(goal));
@@ -40,6 +40,7 @@ open.push(state);
 let steps = 0;
 let found = false;
 let c = 0;
+
 while (!found) {
   let open2 = [];
   c += open.length;
@@ -66,9 +67,25 @@ while (!found) {
 }
 
 function hashState([floor, floors]: State): String {
-  floors.forEach(x => x.sort());
+  let mapping = floors.reduce((acc, items, n) => {
+    items.map(item => item.split('-')).forEach(([k, t]) => {
+      if (!(k in acc)) {
+        acc[k] = {};
+      }
+      acc[k][t] = n;
+    });
 
-  return JSON.stringify([floor, floors]);
+    return acc;
+  }, {});
+  //console.log(mapping);
+  let pairs = Object.values(mapping).map(({g, m}) => [g, m].join('-'));
+  //console.log(pairs);
+  pairs.sort();
+  //console.log(pairs);
+
+  //floors.forEach(x => x.sort());
+
+  return JSON.stringify([floor, pairs]);
 }
 
 function getEdges(s: State): State[] {
