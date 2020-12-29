@@ -3,8 +3,8 @@ import * as path from 'path';
 import { inspect } from 'util';
 
 let file;
-file = 'input.txt';
 file = 'sample.txt';
+file = 'input.txt';
 
 const lines = fs
   .readFileSync(path.join(__dirname, file), 'utf8')
@@ -75,10 +75,12 @@ function getEdges(s: State): State[] {
   const [floor, floors] = s;
   const n = floors.length;
   let validFloors = [];
-  if (floor - 1 >= 0 && floors.slice(0, floor).find(f => f != '')) {
+  if (floor - 1 >= 0 && floors.slice(0, floor).find(items => items.length)) {
     validFloors.push(floor-1);
   }
-  validFloors.push(floor + 1);
+  if (floor + 1 < n) {
+    validFloors.push(floor + 1);
+  }
 
   const items = floors[floor];
   const nItems = floors[floor].length;
