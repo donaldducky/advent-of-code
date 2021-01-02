@@ -18,28 +18,20 @@ END {
 
   row = $1
   for (r = 0; r < h; r++) {
-    #print r
-    #print row
-    if (!(row in rows)) {
-      next_row = ""
-      for (c = 0; c < w; c++) {
-        left = c - 1 < 0 ? "." : substr(row, c, 1)
-        center = substr(row, c+1, 1)
-        right = c + 1 > w - 1 ? "." : substr(row, c+2, 1)
-        lookup = left center right
-        tile = lookup in traps ? "^" : "."
-        next_row = next_row tile
-      }
-      rows[row] = next_row
+    next_row = ""
+    for (c = 0; c < w; c++) {
+      lookup = substr("." row ".", c + 1, 3)
+      tile = lookup in traps ? "^" : "."
+      next_row = next_row tile
     }
-    if (!(row in counts)) {
-      row_copy = row
-      counts[row] = gsub(/\./, "", row_copy)
-    }
+    rows[row] = next_row
 
-    safe += counts[row]
-    prev_row = row
-    row = rows[row]
+    row_copy = row
+    safe += gsub(/\./, "", row_copy)
+
+    #print row, "("r")", counts[row]
+
+    row = next_row
   }
 
   print "Part 2:", safe
