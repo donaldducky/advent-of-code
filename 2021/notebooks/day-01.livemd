@@ -1,0 +1,44 @@
+# Day 1
+
+## Setup
+
+```elixir
+lines = Aoc.get_input(1)
+```
+
+```elixir
+Aoc.pretty(lines)
+```
+
+## Part 1
+
+```elixir
+lines
+|> Enum.map(&String.to_integer(&1))
+|> Enum.reduce({nil, 0}, fn
+  n, {nil, 0} -> {n, 0}
+  n, {prev, total} when n > prev -> {n, total + 1}
+  n, {_prev, total} -> {n, total}
+end)
+|> elem(1)
+```
+
+## Part 2
+
+```elixir
+lines
+|> Enum.map(&String.to_integer(&1))
+|> Enum.reduce({nil, nil, []}, fn
+  n, {nil, nil, xs} -> {n, nil, xs}
+  n, {a, nil, xs} -> {n, a, xs}
+  n, {a, b, xs} -> {n, a, [n + a + b | xs]}
+end)
+|> elem(2)
+|> Enum.reverse()
+|> Enum.reduce({nil, 0}, fn
+  n, {nil, 0} -> {n, 0}
+  n, {prev, total} when n > prev -> {n, total + 1}
+  n, {_prev, total} -> {n, total}
+end)
+|> elem(1)
+```
