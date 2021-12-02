@@ -37,6 +37,7 @@ defmodule Aoc do
 
         res ->
           res |> IO.inspect(label: "Could not fetch input for #{year} day #{day}")
+          ""
       end
     end
     |> String.split("\n", trim: true)

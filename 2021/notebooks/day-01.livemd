@@ -68,3 +68,38 @@ lines
 end)
 |> elem(0)
 ```
+
+Nicer to read solution.
+
+```elixir
+lines
+|> Enum.map(&String.to_integer/1)
+|> Enum.chunk_every(3, 1, :discard)
+|> Enum.map(&Enum.sum/1)
+|> Enum.chunk_every(2, 1, :discard)
+|> Enum.count(fn [a, b] -> a < b end)
+```
+
+When looking at the inputs and comparing the numbers, we have:
+
+$a + b + c < b + c + d$
+
+Which can be simplified to:
+
+$a < d$
+
+```elixir
+lines
+|> Enum.map(&String.to_integer/1)
+|> Enum.chunk_every(4, 1, :discard)
+|> Enum.count(fn [a, _, _, d] -> a < d end)
+```
+
+Using streams, which would not need to make multiple passes.
+
+```elixir
+lines
+|> Stream.map(&String.to_integer/1)
+|> Stream.chunk_every(4, 1, :discard)
+|> Enum.count(fn [a, _, _, d] -> a < d end)
+```
