@@ -1,0 +1,39 @@
+# Day 2
+
+## Setup
+
+```elixir
+lines = Aoc.get_input(2)
+```
+
+```elixir
+Aoc.pretty(lines)
+```
+
+## Part 1
+
+```elixir
+lines
+|> Stream.map(&String.split(&1, " "))
+|> Stream.map(fn [cmd, n] -> {cmd, String.to_integer(n)} end)
+|> Enum.reduce({0, 0}, fn
+  {"forward", n}, {h, d} -> {h + n, d}
+  {"down", n}, {h, d} -> {h, d + n}
+  {"up", n}, {h, d} -> {h, d - n}
+end)
+|> then(fn {h, d} -> h * d end)
+```
+
+## Part 2
+
+```elixir
+lines
+|> Stream.map(&String.split(&1, " "))
+|> Stream.map(fn [cmd, n] -> {cmd, String.to_integer(n)} end)
+|> Enum.reduce({0, 0, 0}, fn
+  {"forward", n}, {h, d, a} -> {h + n, d + n * a, a}
+  {"down", n}, {h, d, a} -> {h, d, a + n}
+  {"up", n}, {h, d, a} -> {h, d, a - n}
+end)
+|> then(fn {h, d, _} -> h * d end)
+```
