@@ -1,0 +1,99 @@
+# Day 3
+
+## Setup
+
+```elixir
+lines = Aoc.get_input(3)
+```
+
+```elixir
+Aoc.pretty(lines)
+```
+
+## Part 1
+
+```elixir
+lines
+|> Enum.reduce(%{}, fn line, acc ->
+  line
+  |> String.split("", trim: true)
+  |> Enum.with_index()
+  |> Enum.reduce(acc, fn
+    {"0", i}, acc -> Map.update(acc, i, {1, 0}, fn {zeroes, ones} -> {zeroes + 1, ones} end)
+    {"1", i}, acc -> Map.update(acc, i, {0, 1}, fn {zeroes, ones} -> {zeroes, ones + 1} end)
+  end)
+end)
+|> Enum.reduce({"", ""}, fn {_, {zeroes, ones}}, {gamma, epsilon} ->
+  if zeroes > ones do
+    {gamma <> "0", epsilon <> "1"}
+  else
+    {gamma <> "1", epsilon <> "0"}
+  end
+end)
+|> then(fn {gamma, epsilon} ->
+  {gamma, ""} = Integer.parse(gamma, 2)
+  {epsilon, ""} = Integer.parse(epsilon, 2)
+  {gamma, epsilon}
+end)
+|> Tuple.product()
+```
+
+## Part 2
+
+```elixir
+bits =
+  lines
+  |> Enum.at(0)
+  |> String.length()
+  |> IO.inspect(label: "bits")
+
+oxygen =
+  0..bits
+  |> Enum.reduce_while(lines, fn i, lines ->
+    lines
+    |> Enum.group_by(&String.at(&1, i))
+    |> then(fn group ->
+      zeroes = Map.get(group, "0") |> Enum.count()
+      ones = Map.get(group, "1") |> Enum.count()
+
+      if zeroes > ones do
+        Map.get(group, "0")
+      else
+        Map.get(group, "1")
+      end
+    end)
+    |> case do
+      [last] -> {:halt, last}
+      lines -> {:cont, lines}
+    end
+  end)
+  |> Integer.parse(2)
+  |> elem(0)
+  |> IO.inspect(label: "oxygen")
+
+co2 =
+  0..bits
+  |> Enum.reduce_while(lines, fn i, lines ->
+    lines
+    |> Enum.group_by(&String.at(&1, i))
+    |> then(fn group ->
+      zeroes = Map.get(group, "0") |> Enum.count()
+      ones = Map.get(group, "1") |> Enum.count()
+
+      if zeroes > ones do
+        Map.get(group, "1")
+      else
+        Map.get(group, "0")
+      end
+    end)
+    |> case do
+      [last] -> {:halt, last}
+      lines -> {:cont, lines}
+    end
+  end)
+  |> Integer.parse(2)
+  |> elem(0)
+  |> IO.inspect(label: "co2")
+
+oxygen * co2
+```
