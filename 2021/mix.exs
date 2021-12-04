@@ -21,7 +21,7 @@ defmodule Aoc.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:kino, "~> 0.3.0"},
+      {:kino, "~> 0.4.0"},
       {:req, "~> 0.2.0"}
     ]
   end

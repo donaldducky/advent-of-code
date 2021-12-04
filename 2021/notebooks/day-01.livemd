@@ -3,16 +3,22 @@
 ## Setup
 
 ```elixir
-lines =
-  Aoc.get_input(1)
-  |> String.split()
+input = Aoc.get_input(1)
 ```
 
 ```elixir
-Aoc.pretty(lines)
+textarea = Kino.Input.textarea("Puzzle Input", default: input)
+```
+
+```elixir
+lines =
+  Kino.Input.read(textarea)
+  |> String.split("\n", trim: true)
 ```
 
 ## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
 
 ```elixir
 lines

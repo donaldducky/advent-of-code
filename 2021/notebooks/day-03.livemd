@@ -3,13 +3,15 @@
 ## Setup
 
 ```elixir
-lines =
-  Aoc.get_input(3)
-  |> String.split("\n", trim: true)
+input = Aoc.get_input(3)
 ```
 
 ```elixir
-Aoc.pretty(lines)
+textarea = Kino.Input.textarea("Puzzle input", default: input)
+```
+
+```elixir
+lines = Kino.Input.read(textarea) |> String.split("\n", trim: true)
 ```
 
 ## Part 1

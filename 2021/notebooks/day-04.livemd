@@ -3,15 +3,15 @@
 ## Setup
 
 ```elixir
-lines = Aoc.get_input(4)
+input = Aoc.get_input(4)
 ```
 
 ```elixir
-Aoc.pretty(lines |> String.split("\n\n"))
+textarea = Kino.Input.textarea("Puzzle input", default: input)
 ```
 
 ```elixir
-test_lines = """
+test_input = """
 7,4,9,5,11,17,23,2,0,14,21,24,10,16,13,6,15,25,12,22,18,20,8,19,3,26,1
 
 22 13 17 11  0
@@ -34,14 +34,19 @@ test_lines = """
 """
 ```
 
-## Part 1
+```elixir
+textarea_test = Kino.Input.textarea("Test input", default: test_input)
+```
 
 ```elixir
 lines =
-  lines
+  textarea
+  |> Kino.Input.read()
   |> String.split("\n\n")
   |> Enum.map(&String.split(&1, "\n", trim: true))
 ```
+
+## Part 1
 
 ```elixir
 [numbers | boards] = lines
@@ -59,7 +64,6 @@ boards =
 {winning_board, last_call} =
   numbers
   |> Enum.reduce_while(boards, fn n, boards ->
-    n |> IO.inspect()
     # update boards
     boards =
       boards
@@ -97,9 +101,7 @@ boards =
             end
           end)
         end)
-        |> IO.inspect(label: "columns")
         |> Enum.find(fn {_k, v} -> v == 5 end)
-        |> IO.inspect(label: "found winner?")
 
       winning_row? || winning_col?
     end)
@@ -137,13 +139,6 @@ score = sum * last_call
 ## Part 2
 
 ```elixir
-lines =
-  lines
-  |> String.split("\n\n")
-  |> Enum.map(&String.split(&1, "\n", trim: true))
-```
-
-```elixir
 [numbers | boards] = lines
 numbers = Enum.at(numbers, 0) |> String.split(",") |> IO.inspect(label: "numbers")
 
@@ -159,7 +154,6 @@ boards =
 {winning_board, last_call} =
   numbers
   |> Enum.reduce_while(boards, fn n, boards ->
-    n |> IO.inspect()
     # update boards
     boards =
       boards
@@ -197,15 +191,12 @@ boards =
             end
           end)
         end)
-        |> IO.inspect(label: "columns")
         |> Enum.find(fn {_k, v} -> v == 5 end)
-        |> IO.inspect(label: "found winner?")
 
       winning_row? || winning_col?
     end)
     |> case do
       [] ->
-        boards |> IO.inspect(label: "last")
         [board] = boards
         {:halt, {board, n}}
 
@@ -224,7 +215,7 @@ boards =
 sum =
   unmarked
   |> Enum.map(fn {n, _} -> n |> String.to_integer() end)
-  |> IO.inspect(label: "unmarked")
+  |> IO.inspect(label: "unmarked", charlists: :as_lists)
   |> Enum.sum()
   |> IO.inspect(label: "sum")
 
