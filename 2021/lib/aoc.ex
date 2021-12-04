@@ -40,7 +40,6 @@ defmodule Aoc do
           ""
       end
     end
-    |> String.split("\n", trim: true)
   end
 
   def pretty(input) do

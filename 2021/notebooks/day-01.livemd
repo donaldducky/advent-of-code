@@ -3,7 +3,9 @@
 ## Setup
 
 ```elixir
-lines = Aoc.get_input(1)
+lines =
+  Aoc.get_input(1)
+  |> String.split()
 ```
 
 ```elixir
