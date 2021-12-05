@@ -1,0 +1,112 @@
+# Day 5
+
+## Setup
+
+```elixir
+input = Aoc.get_input(5)
+```
+
+```elixir
+textarea = Kino.Input.textarea("Puzzle input", default: input)
+```
+
+```elixir
+test_textarea = Kino.Input.textarea("Test input")
+```
+
+```elixir
+options = [
+  puzzle: "Puzzle",
+  test: "Test"
+]
+
+select = Kino.Input.select("Input source", options)
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+lines =
+  select
+  |> Kino.Input.read()
+  |> case do
+    :puzzle -> input
+    :test -> test_textarea |> Kino.Input.read()
+  end
+  |> String.split("\n", trim: true)
+  |> Enum.map(&String.split(&1, " -> "))
+  |> Enum.map(fn c ->
+    Enum.map(c, &(String.split(&1, ",") |> Enum.map(fn n -> String.to_integer(n) end)))
+  end)
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+lines
+|> Enum.filter(fn segment ->
+  case segment do
+    [[x, _], [x, _]] -> true
+    [[_, y], [_, y]] -> true
+    _ -> false
+  end
+end)
+|> Enum.reduce(Map.new(), fn
+  [[x, y1], [x, y2]], points ->
+    y1..y2
+    |> Enum.reduce(points, fn y, points ->
+      Map.update(points, "#{x},#{y}", 1, &(&1 + 1))
+    end)
+
+  [[x1, y], [x2, y]], points ->
+    x1..x2
+    |> Enum.reduce(points, fn x, points ->
+      Map.update(points, "#{x},#{y}", 1, &(&1 + 1))
+    end)
+end)
+|> Enum.filter(fn {_k, v} -> v > 1 end)
+|> Enum.count()
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+lines
+|> Enum.filter(fn segment ->
+  case segment do
+    [[x, _], [x, _]] -> true
+    [[_, y], [_, y]] -> true
+    [[x1, y1], [x2, y2]] when abs(x1 - x2) == abs(y1 - y2) -> true
+    _ -> false
+  end
+end)
+|> Enum.reduce(Map.new(), fn
+  [[x, y1], [x, y2]], points ->
+    y1..y2
+    |> Enum.reduce(points, fn y, points ->
+      Map.update(points, "#{x},#{y}", 1, &(&1 + 1))
+    end)
+
+  [[x1, y], [x2, y]], points ->
+    x1..x2
+    |> Enum.reduce(points, fn x, points ->
+      Map.update(points, "#{x},#{y}", 1, &(&1 + 1))
+    end)
+
+  [[x1, y1], [x2, y2]], points ->
+    Enum.zip(x1..x2, y1..y2)
+    |> Enum.reduce(points, fn {x, y}, points ->
+      Map.update(points, "#{x},#{y}", 1, &(&1 + 1))
+    end)
+end)
+|> Enum.filter(fn {_k, v} -> v > 1 end)
+|> Enum.count()
+```
