@@ -44,6 +44,20 @@ lines =
 
 ## Part 1
 
+1. Select line segments that meet the criteria:
+
+* $x1 = x2$ or $y1 = y2$
+
+1. Generate a map of points and the number of intersections
+2. Count the points that intersects more than once
+
+### Notes
+
+* this solution is kind of slow
+* the nested `Enum.reduce` isn't pretty
+* building string keys for the map is weird
+  * `"#{x},#{y}"` could have been more _native_ using tuples `{x, y}`
+
 <!-- livebook:{"reevaluate_automatically":true} -->
 
 ```elixir
@@ -75,6 +89,15 @@ end)
 <!-- livebook:{"branch_parent_index":0} -->
 
 ## Part 2
+
+Essentially, copy/paste part 1 and filter for diagonals.
+
+Zipping the ranges together creates the list of points for the diagonals.
+
+```elixir
+# example 9,7 -> 7,9
+Enum.zip(9..7, 7..9)
+```
 
 <!-- livebook:{"reevaluate_automatically":true} -->
 
@@ -109,4 +132,131 @@ end)
 end)
 |> Enum.filter(fn {_k, v} -> v > 1 end)
 |> Enum.count()
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+lines
+|> Enum.filter(fn [[x1, y1], [x2, y2]] -> x1 == x2 or y1 == y2 end)
+|> Enum.map(fn
+  [[x, y1], [x, y2]] -> Enum.map(y1..y2, &{x, &1})
+  [[x1, y], [x2, y]] -> Enum.map(x1..x2, &{&1, y})
+end)
+|> List.flatten()
+|> Enum.frequencies()
+|> Enum.filter(fn {_k, v} -> v > 1 end)
+|> Enum.count()
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 1 revisited
+
+Seems like building a map using `Enum.reduce/3` and `Map.update/4` is really slow.
+
+Another culprit was building a string `"#{x},#{y}"` instead of a tuple `{x, y}` for the keys. For some reason I forgot you could use other types as keys 🙃.
+
+Using `List.flatten/1` and `Enum.frequencies/1` achieves the same effect and is much more elegant.
+
+This solution is much more simpler and faster.
+
+```elixir
+lines
+|> Enum.filter(fn [[x1, y1], [x2, y2]] -> x1 == x2 or y1 == y2 end)
+|> Enum.map(fn
+  [[x, y1], [x, y2]] -> Enum.map(y1..y2, &{x, &1})
+  [[x1, y], [x2, y]] -> Enum.map(x1..x2, &{&1, y})
+end)
+|> List.flatten()
+|> Enum.frequencies()
+|> Enum.filter(fn {_k, v} -> v > 1 end)
+|> Enum.count()
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 2 revisited
+
+Similar cleanup as part 1.
+
+The puzzle itself only had horizontal, vertical and 45 degree diagonal lines. This means any filtering of the line segments is unnecessary for part 2.
+
+```elixir
+lines
+|> Enum.map(fn
+  [[x, y1], [x, y2]] -> Enum.map(y1..y2, &{x, &1})
+  [[x1, y], [x2, y]] -> Enum.map(x1..x2, &{&1, y})
+  [[x1, y1], [x2, y2]] -> Enum.zip(x1..x2, y1..y2)
+end)
+# |> List.flatten()
+|> Enum.concat()
+|> Enum.frequencies()
+|> Enum.filter(fn {_k, v} -> v > 1 end)
+|> Enum.count()
+```
+
+## List.flatten vs. Enum.concat
+
+### Usage
+
+Using `List.flatten/1` achieves the same result as `Enum.concat/1` in the context of this use.
+
+I tend to think of it more of flattening a list of lists rather than building a bigger list.
+
+There are a few differences:
+
+* `Enum.concat` concatenates a list
+* `List.flatten` will handle nested lists
+* `Enum.concat` can be replaced with `Stream.concat` in a streaming context
+
+```elixir
+simple =
+  [1..5, 7..10]
+  |> Enum.map(&Enum.to_list/1)
+  |> IO.inspect(label: 'simple list of lists', charlists: :as_lists)
+
+nested =
+  [[1, 2, 3, [4, 5], [7, 8, 9]], [10]] |> IO.inspect(label: "nested list", charlists: :as_list)
+```
+
+```elixir
+Enum.concat(simple) |> IO.inspect(label: "Enum.concat(simple)", charlists: :as_list)
+Enum.concat(nested) |> IO.inspect(label: "Enum.concat(nested)", charlists: :as_list)
+List.flatten(simple) |> IO.inspect(label: "List.flatten(simple)", charlists: :as_list)
+List.flatten(nested) |> IO.inspect(label: "List.flatten(nested)", charlists: :as_list)
+```
+
+### Performance implications
+
+The Elixir docs also mention that `Enum.concat/1` uses the `Kernel++/2` operator but concatenating lists is sometimes [avoided due to performance reasons](https://www.erlang.org/doc/efficiency_guide/myths.html#myth--operator--++--is-always-bad).
+
+| As the ++ operator copies its left operand, the result is copied repeatedly, leading to quadratic complexity.
+
+Does `List.flatten/1` suffer from the same issue?
+
+* [Enum.concat source](https://github.com/elixir-lang/elixir/blob/6f98831d8822b364d4d2184df4130fcaa7b95ff5/lib/elixir/lib/enum.ex#L606)
+  * delegates to Erlang's [Kernel.++](https://github.com/elixir-lang/elixir/blob/74d61e0c8dfe99999edecbc4fc288eb2adaa0d21/lib/elixir/lib/kernel.ex#L1457) delegates to Erlang's `++`
+  * Note: I tried to source dive where `++` is defined on the Erlang side but could not find it in a couple minutes due to unfamiliarity with the codebase. I may try again at a later point.
+* [List.flatten source](https://github.com/elixir-lang/elixir/blob/6f98831d8822b364d4d2184df4130fcaa7b95ff5/lib/elixir/lib/list.ex#L205)
+  * delegates to Erlang's [:lists.flatten](https://github.com/erlang/otp/blob/8d0e0eb7639a9d9f62da71ecf0b4ef7b79e78410/lib/stdlib/src/lists.erl#L612)
+
+<!-- livebook:{"break_markdown":true} -->
+
+When $n = 25000$ there's no real noticeable difference, in this situation.
+
+```elixir
+n = 25_000
+```
+
+```elixir
+list = 1..n |> Enum.to_list() |> List.duplicate(n)
+```
+
+```elixir
+list |> Enum.concat()
+```
+
+```elixir
+list |> List.flatten()
 ```
