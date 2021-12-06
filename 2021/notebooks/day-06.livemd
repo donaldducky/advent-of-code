@@ -1,0 +1,99 @@
+# Day 6
+
+## Setup
+
+```elixir
+input = Aoc.get_input(6)
+```
+
+```elixir
+textarea = Kino.Input.textarea("Puzzle input", default: input)
+```
+
+```elixir
+test_textarea = Kino.Input.textarea("Test input")
+```
+
+```elixir
+options = [
+  puzzle: "Puzzle",
+  test: "Test"
+]
+
+select = Kino.Input.select("Input source", options)
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+lines =
+  select
+  |> Kino.Input.read()
+  |> case do
+    :puzzle -> input
+    :test -> test_textarea |> Kino.Input.read()
+  end
+  |> String.trim()
+  |> String.split(",", trim: true)
+  |> Enum.map(&String.to_integer/1)
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+freq = Enum.frequencies(lines)
+n = 80
+
+1..n
+|> Enum.reduce(freq, fn _, acc ->
+  new_fish = Map.get(acc, 0, 0)
+
+  acc
+  |> Enum.reduce(%{}, fn
+    {0, count}, acc ->
+      Map.update(acc, 6, count, &(&1 + count))
+
+    {day, count}, acc ->
+      Map.update(acc, day - 1, count, &(&1 + count))
+  end)
+  |> Enum.into(%{})
+  |> Map.put(8, new_fish)
+end)
+|> Map.values()
+|> Enum.sum()
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 2
+
+Same solution from part 1 but with $n = 256$.
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+freq = Enum.frequencies(lines)
+n = 256
+
+1..n
+|> Enum.reduce(freq, fn _, acc ->
+  new_fish = Map.get(acc, 0, 0)
+
+  acc
+  |> Enum.reduce(%{}, fn
+    {0, count}, acc ->
+      Map.update(acc, 6, count, &(&1 + count))
+
+    {day, count}, acc ->
+      Map.update(acc, day - 1, count, &(&1 + count))
+  end)
+  |> Enum.into(%{})
+  |> Map.put(8, new_fish)
+end)
+|> Map.values()
+|> Enum.sum()
+```
