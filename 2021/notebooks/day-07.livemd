@@ -76,3 +76,40 @@ min..max
 |> Enum.min_by(&elem(&1, 1))
 |> elem(1)
 ```
+
+## Part 2 binary search
+
+```elixir
+max = lines |> Enum.max() |> IO.inspect(label: "max")
+min = lines |> Enum.min() |> IO.inspect(label: "min")
+
+costs =
+  0..max
+  |> Enum.reduce(%{}, fn n, acc ->
+    prev = Map.get(acc, n - 1, 0)
+    Map.put(acc, n, prev + n)
+  end)
+
+calc = fn lines, n ->
+  {n, lines |> Enum.map(fn x -> Map.get(costs, abs(n - x)) end) |> Enum.sum()}
+end
+
+left = calc.(lines, min)
+right = calc.(lines, max)
+
+Stream.iterate(0, &(&1 + 1))
+|> Enum.reduce_while([left, right], fn _, [{l, _lc}, {r, _rc}] = acc ->
+  min = Enum.min_by(acc, &elem(&1, 1))
+
+  case div(r - l, 2) do
+    0 ->
+      {:halt, min}
+
+    half ->
+      mid_index = l + half
+      mid = calc.(lines, mid_index)
+      {:cont, [min, mid] |> Enum.sort_by(&elem(&1, 0))}
+  end
+end)
+|> elem(1)
+```
