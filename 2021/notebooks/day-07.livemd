@@ -1,0 +1,78 @@
+# Day 7
+
+## Setup
+
+```elixir
+input = Aoc.get_input(7)
+```
+
+```elixir
+textarea = Kino.Input.textarea("Puzzle input", default: input)
+```
+
+```elixir
+test_textarea = Kino.Input.textarea("Test input")
+```
+
+```elixir
+options = [
+  puzzle: "Puzzle",
+  test: "Test"
+]
+
+select = Kino.Input.select("Input source", options)
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+lines =
+  select
+  |> Kino.Input.read()
+  |> case do
+    :puzzle -> input
+    :test -> test_textarea |> Kino.Input.read()
+  end
+  |> String.trim()
+  |> String.split(",", trim: true)
+  |> Enum.map(&String.to_integer/1)
+```
+
+## Part 1
+
+```elixir
+max = lines |> Enum.max() |> IO.inspect(label: "max")
+min = lines |> Enum.min() |> IO.inspect(label: "min")
+
+calc = fn lines, n -> {n, lines |> Enum.map(fn x -> abs(n - x) end) |> Enum.sum()} end
+
+min..max
+|> Enum.map(fn i -> calc.(lines, i) end)
+|> Enum.min_by(&elem(&1, 1))
+|> elem(1)
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+max = lines |> Enum.max() |> IO.inspect(label: "max")
+min = lines |> Enum.min() |> IO.inspect(label: "min")
+
+costs =
+  0..max
+  |> Enum.reduce(%{}, fn n, acc ->
+    prev = Map.get(acc, n - 1, 0)
+    Map.put(acc, n, prev + n)
+  end)
+
+calc = fn lines, n ->
+  {n, lines |> Enum.map(fn x -> Map.get(costs, abs(n - x)) end) |> Enum.sum()}
+end
+
+min..max
+|> Enum.map(fn i -> calc.(lines, i) end)
+|> Enum.min_by(&elem(&1, 1))
+|> elem(1)
+```
