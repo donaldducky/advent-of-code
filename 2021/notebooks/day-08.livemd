@@ -1,0 +1,175 @@
+# Day 8
+
+## Setup
+
+```elixir
+input = Aoc.get_input(8)
+```
+
+```elixir
+textarea = Kino.Input.textarea("Puzzle input", default: input)
+```
+
+```elixir
+test_textarea = Kino.Input.textarea("Test input")
+```
+
+```elixir
+small_test_textarea = Kino.Input.textarea("Small test input")
+```
+
+```elixir
+options = [
+  puzzle: "Puzzle",
+  test: "Test",
+  small_test: "Small"
+]
+
+select = Kino.Input.select("Input source", options)
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+lines =
+  select
+  |> Kino.Input.read()
+  |> case do
+    :puzzle -> input
+    :test -> test_textarea |> Kino.Input.read()
+    :small_test -> small_test_textarea |> Kino.Input.read()
+  end
+  |> String.split(["\n"], trim: true)
+  |> Enum.map(&(String.trim(&1) |> String.split(" | ") |> Enum.map(fn s -> String.split(s) end)))
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+digit_to_count =
+  [6, 2, 5, 5, 4, 5, 6, 3, 7, 6]
+  |> Enum.with_index()
+  |> Enum.map(fn {a, b} -> {b, a} end)
+  |> Enum.into(%{})
+```
+
+```elixir
+count_to_digits =
+  digit_to_count
+  |> Enum.reduce(%{}, fn {v, c}, acc ->
+    Map.update(acc, c, [v], &[v | &1])
+  end)
+  |> IO.inspect(charlists: :as_lists)
+```
+
+```elixir
+lines
+|> Enum.flat_map(&Enum.at(&1, 1))
+|> IO.inspect()
+|> Enum.map(&String.length/1)
+|> IO.inspect()
+|> Enum.filter(&(&1 in [2, 3, 4, 7]))
+|> Enum.count()
+```
+
+## Part 2
+
+```elixir
+pop_pattern = fn patterns, len ->
+  pattern = Enum.find(patterns, &(String.length(&1) == len))
+  patterns = Enum.reject(patterns, &(&1 == pattern))
+  {patterns, pattern}
+end
+
+sort = fn str -> String.split(str, "", trim: true) |> Enum.sort() |> Enum.join("") end
+
+lines
+|> Enum.map(fn [patterns, output] ->
+  # %{2 => [1], 3 => [7], 4 => [4], 5 => [5, 3, 2], 6 => [9, 6, 0], 7 => [8]}
+  {patterns, pattern1} = pop_pattern.(patterns, 2)
+  {patterns, pattern4} = pop_pattern.(patterns, 4)
+  {patterns, pattern7} = pop_pattern.(patterns, 3)
+  {patterns, pattern8} = pop_pattern.(patterns, 7)
+
+  # %{5 => [5, 3, 2], 6 => [9, 6, 0]}
+  parts4 = String.split(pattern4, "", trim: true)
+
+  pattern9 =
+    patterns
+    |> Enum.filter(&(String.length(&1) == 6))
+    |> Enum.find(fn p ->
+      parts = String.split(p, "", trim: true)
+      parts4 |> Enum.all?(&(&1 in parts))
+    end)
+
+  patterns = Enum.reject(patterns, &(&1 == pattern9))
+
+  # %{5 => [5, 3, 2], 6 => [6, 0]}
+  # now that we have 9, we can find 2
+  # take 8 and subtract all letters of 9, the letter that's left in the 5 group will be a 2
+  parts8 = String.split(pattern8, "", trim: true)
+  parts9 = String.split(pattern9, "", trim: true)
+
+  [letter] = Enum.reject(parts8, &(&1 in parts9))
+
+  pattern2 =
+    patterns |> Enum.filter(&(String.length(&1) == 5)) |> Enum.find(&String.contains?(&1, letter))
+
+  patterns = Enum.reject(patterns, &(&1 == pattern2))
+
+  parts2 = String.split(pattern2, "", trim: true)
+  parts2_minus_letter = Enum.reject(parts2, &(&1 == letter))
+
+  pattern3 =
+    patterns
+    |> Enum.filter(&(String.length(&1) == 5))
+    |> Enum.find(fn p ->
+      parts = String.split(p, "", trim: true)
+
+      parts2_minus_letter
+      |> Enum.all?(&(&1 in parts))
+    end)
+
+  patterns = Enum.reject(patterns, &(&1 == pattern3))
+  {patterns, pattern5} = pop_pattern.(patterns, 5)
+
+  parts1 = String.split(pattern1, "", trim: true)
+
+  pattern0 =
+    Enum.find(patterns, fn p ->
+      parts = String.split(p, "", trim: true)
+      parts1 |> Enum.all?(&(&1 in parts))
+    end)
+
+  patterns = Enum.reject(patterns, &(&1 == pattern0))
+
+  [pattern6] = patterns
+
+  mapping =
+    %{}
+    |> Map.put(pattern1, 1)
+    |> Map.put(pattern4, 4)
+    |> Map.put(pattern7, 7)
+    |> Map.put(pattern8, 8)
+    |> Map.put(pattern9, 9)
+    |> Map.put(pattern2, 2)
+    |> Map.put(pattern3, 3)
+    |> Map.put(pattern5, 5)
+    |> Map.put(pattern0, 0)
+    |> Map.put(pattern6, 6)
+
+  {patterns, mapping}
+
+  # output converted to number ie. 5353
+  mapping = mapping |> Enum.map(fn {k, v} -> {sort.(k), v} end) |> Enum.into(%{})
+
+  output
+  |> Enum.map(&sort.(&1))
+  |> Enum.map(&Map.get(mapping, &1))
+  |> Enum.join("")
+  |> String.to_integer()
+end)
+|> Enum.sum()
+```
