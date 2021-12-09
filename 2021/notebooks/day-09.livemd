@@ -1,0 +1,151 @@
+# Day 9
+
+## Setup
+
+```elixir
+input = Aoc.get_input(9)
+```
+
+```elixir
+textarea = Kino.Input.textarea("Puzzle input", default: input)
+```
+
+```elixir
+test_textarea = Kino.Input.textarea("Test input")
+```
+
+```elixir
+small_test_textarea = Kino.Input.textarea("Small test input")
+```
+
+```elixir
+options = [
+  puzzle: "Puzzle",
+  test: "Test",
+  small_test: "Small"
+]
+
+select = Kino.Input.select("Input source", options)
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+lines =
+  select
+  |> Kino.Input.read()
+  |> case do
+    :puzzle -> input
+    :test -> test_textarea |> Kino.Input.read()
+    :small_test -> small_test_textarea |> Kino.Input.read()
+  end
+  |> String.split(["\n"], trim: true)
+```
+
+## Part 1
+
+```elixir
+rows = lines |> Enum.count() |> IO.inspect(label: "rows")
+cols = lines |> Enum.at(0) |> String.length() |> IO.inspect(label: "cols")
+
+map =
+  lines
+  |> Enum.map(&String.split(&1, "", trim: true))
+  |> Enum.with_index()
+  |> Enum.reduce(%{}, fn {row, y}, map ->
+    row
+    |> Enum.map(&String.to_integer/1)
+    |> Enum.with_index()
+    |> Enum.reduce(map, fn {val, x}, map ->
+      Map.put(map, {x, y}, val)
+    end)
+  end)
+```
+
+```elixir
+points = for x <- 0..(cols - 1), y <- 0..(rows - 1), into: [], do: {x, y}
+
+points
+|> Enum.filter(fn {x, y} ->
+  val = Map.get(map, {x, y})
+
+  [
+    {-1, 0},
+    {1, 0},
+    {0, 1},
+    {0, -1}
+  ]
+  |> Enum.map(fn {dx, dy} -> {x + dx, y + dy} end)
+  |> Enum.filter(fn {x2, y2} -> x2 >= 0 && x2 < cols && y2 >= 0 && y2 < rows end)
+  |> Enum.map(fn {x2, y2} -> Map.get(map, {x2, y2}) end)
+  |> Enum.all?(fn h -> val < h end)
+end)
+|> Enum.map(fn p -> Map.get(map, p) + 1 end)
+|> Enum.sum()
+```
+
+## Part 2
+
+```elixir
+rows = lines |> Enum.count()
+cols = lines |> Enum.at(0) |> String.length()
+
+map =
+  lines
+  |> Enum.map(&String.split(&1, "", trim: true))
+  |> Enum.with_index()
+  |> Enum.reduce(%{}, fn {row, y}, map ->
+    row
+    |> Enum.map(&String.to_integer/1)
+    |> Enum.with_index()
+    |> Enum.reduce(map, fn {val, x}, map ->
+      Map.put(map, {x, y}, val)
+    end)
+  end)
+
+points = for x <- 0..(cols - 1), y <- 0..(rows - 1), into: [], do: {x, y}
+
+points
+|> Enum.reduce({[], MapSet.new()}, fn p, {basins, visited} ->
+  if MapSet.member?(visited, p) do
+    {basins, visited}
+  else
+    {visited, size} =
+      Stream.iterate(0, & &1)
+      |> Enum.reduce_while({[p], visited, 0}, fn _, {to_visit, visited, size} ->
+        case to_visit do
+          [] ->
+            {:halt, {visited, size}}
+
+          [{x, y} = point | remaining] ->
+            visited = MapSet.put(visited, point)
+
+            case Map.get(map, point) do
+              9 ->
+                {:cont, {remaining, visited, size}}
+
+              n when is_integer(n) ->
+                expand =
+                  [
+                    {1, 0},
+                    {0, 1},
+                    {-1, 0},
+                    {0, -1}
+                  ]
+                  |> Enum.map(fn {dx, dy} -> {dx + x, dy + y} end)
+                  |> Enum.filter(fn p -> Map.get(map, p) end)
+                  |> Enum.filter(fn p -> !MapSet.member?(visited, p) end)
+
+                {:cont, {(remaining ++ expand) |> Enum.uniq(), visited, size + 1}}
+            end
+        end
+      end)
+
+    {[size | basins], visited}
+  end
+end)
+|> elem(0)
+|> Enum.sort(&>/2)
+|> Enum.take(3)
+|> Enum.product()
+```
