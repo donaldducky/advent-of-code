@@ -1,0 +1,166 @@
+# Day 10
+
+## Setup
+
+```elixir
+input = Aoc.get_input(10)
+```
+
+```elixir
+textarea = Kino.Input.textarea("Puzzle input", default: input)
+```
+
+```elixir
+test_textarea = Kino.Input.textarea("Test input")
+```
+
+```elixir
+small_test_textarea = Kino.Input.textarea("Small test input")
+```
+
+```elixir
+options = [
+  puzzle: "Puzzle",
+  test: "Test",
+  small_test: "Small"
+]
+
+select = Kino.Input.select("Input source", options)
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+lines =
+  select
+  |> Kino.Input.read()
+  |> case do
+    :puzzle -> input
+    :test -> test_textarea |> Kino.Input.read()
+    :small_test -> small_test_textarea |> Kino.Input.read()
+  end
+  |> String.split(["\n"], trim: true)
+```
+
+## Part 1
+
+```elixir
+defmodule Day10 do
+  @opening ["(", "[", "{", "<"]
+  @close [")", "]", "}", ">"]
+  @match %{
+    ")" => "(",
+    "]" => "[",
+    "}" => "{",
+    ">" => "<"
+  }
+
+  def find_first_error([], _stack), do: nil
+
+  def find_first_error([c | rest], stack) when c in @opening do
+    find_first_error(rest, [c | stack])
+  end
+
+  def find_first_error([c | _rest], []) when c in @close, do: c
+
+  def find_first_error([c | rest], [open | stack]) when c in @close do
+    if Map.get(@match, c) == open do
+      find_first_error(rest, stack)
+    else
+      c
+    end
+  end
+end
+
+lines
+|> Enum.map(fn line ->
+  String.split(line, "", trim: true)
+  |> Day10.find_first_error([])
+end)
+|> Enum.filter(&(&1 != nil))
+|> Enum.map(fn
+  ")" -> 3
+  "]" -> 57
+  "}" -> 1197
+  ">" -> 25137
+end)
+|> Enum.sum()
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 2
+
+```elixir
+defmodule Day10 do
+  @opening ["(", "[", "{", "<"]
+  @close [")", "]", "}", ">"]
+  @match %{
+    ")" => "(",
+    "]" => "[",
+    "}" => "{",
+    ">" => "<"
+  }
+
+  def find_first_error([], _stack), do: nil
+
+  def find_first_error([c | rest], stack) when c in @opening do
+    find_first_error(rest, [c | stack])
+  end
+
+  def find_first_error([c | _rest], []) when c in @close, do: c
+
+  def find_first_error([c | rest], [open | stack]) when c in @close do
+    if Map.get(@match, c) == open do
+      find_first_error(rest, stack)
+    else
+      c
+    end
+  end
+
+  def complete_line([], stack), do: stack
+
+  def complete_line([c | rest], stack) when c in @opening do
+    complete_line(rest, [c | stack])
+  end
+
+  def complete_line([c | _rest], []) when c in @close, do: c
+
+  def complete_line([c | rest], [open | stack]) when c in @close do
+    if Map.get(@match, c) == open do
+      complete_line(rest, stack)
+    else
+      c
+    end
+  end
+end
+
+scores =
+  lines
+  |> Enum.map(&String.split(&1, "", trim: true))
+  |> Enum.filter(&(Day10.find_first_error(&1, []) == nil))
+  |> Enum.map(&Day10.complete_line(&1, []))
+  |> Enum.map(fn matches ->
+    total = 0
+
+    matches
+    |> Enum.reduce(total, fn c, total ->
+      total = total * 5
+
+      inc =
+        case c do
+          "(" -> 1
+          "[" -> 2
+          "{" -> 3
+          "<" -> 4
+        end
+
+      total + inc
+    end)
+  end)
+  |> Enum.sort()
+
+mid = div(scores |> Enum.count(), 2)
+
+scores |> Enum.at(mid)
+```
