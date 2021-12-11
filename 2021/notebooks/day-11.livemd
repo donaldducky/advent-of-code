@@ -1,0 +1,144 @@
+# Day 11
+
+## Setup
+
+```elixir
+input = Aoc.get_input(11)
+```
+
+```elixir
+textarea = Kino.Input.textarea("Puzzle input", default: input)
+```
+
+```elixir
+test_textarea = Kino.Input.textarea("Test input")
+```
+
+```elixir
+small_test_textarea = Kino.Input.textarea("Small test input")
+```
+
+```elixir
+options = [
+  puzzle: "Puzzle",
+  test: "Test",
+  small_test: "Small"
+]
+
+select = Kino.Input.select("Input source", options)
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+lines =
+  select
+  |> Kino.Input.read()
+  |> case do
+    :puzzle -> input
+    :test -> test_textarea |> Kino.Input.read()
+    :small_test -> small_test_textarea |> Kino.Input.read()
+  end
+  |> String.split(["\n"], trim: true)
+```
+
+```elixir
+defmodule Day11 do
+  def increase_energy(grid) do
+    grid
+    |> Enum.reduce(grid, fn {k, v}, grid -> Map.put(grid, k, v + 1) end)
+  end
+
+  def trigger_flashes(grid, flashed) do
+    grid
+    |> Enum.filter(fn {k, _v} -> !MapSet.member?(flashed, k) end)
+    |> Enum.filter(fn {_k, v} -> v > 9 end)
+    |> case do
+      [] ->
+        {grid, flashed}
+
+      newly_flashed ->
+        {grid, flashed} =
+          newly_flashed
+          |> Enum.reduce({grid, flashed}, fn {{x, y} = p, _v}, {grid, flashed} ->
+            adjacent =
+              for dx <- -1..1,
+                  dy <- -1..1,
+                  {dx, dy} != {0, 0},
+                  do: {x + dx, y + dy}
+
+            grid =
+              adjacent
+              |> Enum.reduce(grid, fn p, grid ->
+                case Map.get(grid, p) do
+                  nil ->
+                    grid
+
+                  v ->
+                    Map.put(grid, p, v + 1)
+                end
+              end)
+
+            flashed = MapSet.put(flashed, p)
+
+            {grid, flashed}
+          end)
+
+        trigger_flashes(grid, flashed)
+    end
+  end
+
+  def clear(grid, flashed) do
+    flashed
+    |> Enum.reduce(grid, fn p, grid ->
+      Map.put(grid, p, 0)
+    end)
+  end
+end
+```
+
+```elixir
+grid =
+  for {line, row} <- Enum.with_index(lines),
+      {number, col} <- Enum.with_index(String.to_charlist(line) |> Enum.map(&(&1 - ?0))),
+      into: %{} do
+    {{row, col}, number}
+  end
+```
+
+## Part 1
+
+```elixir
+1..100
+|> Enum.reduce({0, grid}, fn _, {count, grid} ->
+  grid = Day11.increase_energy(grid)
+  flashed = MapSet.new()
+  {grid, flashed} = Day11.trigger_flashes(grid, flashed)
+  grid = Day11.clear(grid, flashed)
+
+  {count + MapSet.size(flashed), grid}
+end)
+|> elem(0)
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 2
+
+```elixir
+num_octopus = grid |> Enum.count()
+
+Stream.iterate(1, &(&1 + 1))
+|> Enum.reduce_while(grid, fn i, grid ->
+  grid = Day11.increase_energy(grid)
+  flashed = MapSet.new()
+  {grid, flashed} = Day11.trigger_flashes(grid, flashed)
+  grid = Day11.clear(grid, flashed)
+
+  if MapSet.size(flashed) == num_octopus do
+    {:halt, i}
+  else
+    {:cont, grid}
+  end
+end)
+```
