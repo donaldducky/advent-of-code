@@ -1,0 +1,123 @@
+# Day 12
+
+## Setup
+
+```elixir
+input = Aoc.get_input(12)
+```
+
+```elixir
+textarea = Kino.Input.textarea("Puzzle input", default: input)
+```
+
+```elixir
+test_textarea = Kino.Input.textarea("Test input")
+```
+
+```elixir
+small_test_textarea = Kino.Input.textarea("Small test input")
+```
+
+```elixir
+options = [
+  puzzle: "Puzzle",
+  test: "Test",
+  small_test: "Small"
+]
+
+select = Kino.Input.select("Input source", options)
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+lines =
+  select
+  |> Kino.Input.read()
+  |> case do
+    :puzzle -> input
+    :test -> test_textarea |> Kino.Input.read()
+    :small_test -> small_test_textarea |> Kino.Input.read()
+  end
+  |> String.split(["\n"], trim: true)
+```
+
+```elixir
+map =
+  lines
+  |> Enum.map(&String.split(&1, "-", trim: true))
+  |> Enum.reduce(%{}, fn [from, to], map ->
+    map
+    |> Map.update(from, MapSet.new([to]), &MapSet.put(&1, to))
+    |> Map.update(to, MapSet.new([from]), &MapSet.put(&1, from))
+  end)
+```
+
+## Part 1
+
+```elixir
+defmodule Day12 do
+  def lowercase?(letters), do: String.downcase(letters) == letters
+
+  def expand(_map, "end" = to, path, _), do: [to | path] |> Enum.reverse() |> Enum.join(",")
+
+  def expand(map, to, path, visited) do
+    path = [to | path]
+    visited = MapSet.put(visited, to)
+
+    map[to]
+    |> Enum.reject(&(Day12.lowercase?(&1) && MapSet.member?(visited, &1)))
+    |> Enum.map(&expand(map, &1, path, visited))
+  end
+end
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+Day12.expand(map, "start", [], MapSet.new())
+|> List.flatten()
+|> Enum.count()
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 2
+
+```elixir
+defmodule Day12 do
+  def lowercase?(letters), do: String.downcase(letters) == letters
+
+  def expand(_map, "end" = to, path, _, _), do: [to | path] |> Enum.reverse() |> Enum.join(",")
+
+  def expand(map, to, path, visited, twice?) do
+    path = [to | path]
+    visited = MapSet.put(visited, to)
+
+    map[to]
+    |> Enum.map(fn to ->
+      if lowercase?(to) && MapSet.member?(visited, to) do
+        if twice? do
+          []
+        else
+          case to do
+            "start" -> []
+            "end" -> []
+            to -> expand(map, to, path, visited, true)
+          end
+        end
+      else
+        expand(map, to, path, visited, twice?)
+      end
+    end)
+  end
+end
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+Day12.expand(map, "start", [], MapSet.new(), false)
+|> List.flatten()
+|> Enum.count()
+```
