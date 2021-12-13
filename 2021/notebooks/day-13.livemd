@@ -1,0 +1,170 @@
+# Day 13
+
+## Setup
+
+```elixir
+input = Aoc.get_input(13)
+```
+
+```elixir
+textarea = Kino.Input.textarea("Puzzle input", default: input)
+```
+
+```elixir
+test_textarea = Kino.Input.textarea("Test input")
+```
+
+```elixir
+small_test_textarea = Kino.Input.textarea("Small test input")
+```
+
+```elixir
+options = [
+  puzzle: "Puzzle",
+  test: "Test",
+  small_test: "Small"
+]
+
+select = Kino.Input.select("Input source", options)
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+[points, folds] =
+  select
+  |> Kino.Input.read()
+  |> case do
+    :puzzle -> input
+    :test -> test_textarea |> Kino.Input.read()
+    :small_test -> small_test_textarea |> Kino.Input.read()
+  end
+  |> String.split(["\n\n"], trim: true)
+
+points =
+  points
+  |> String.split("\n", trim: true)
+  |> Enum.map(
+    &(String.split(&1, ",", trim: true)
+      |> Enum.map(fn n -> String.to_integer(n) end)
+      |> List.to_tuple())
+  )
+
+folds =
+  folds
+  |> String.split("\n", trim: true)
+  |> Enum.map(fn line ->
+    [dir, n] = String.split(line) |> Enum.at(2) |> String.split("=")
+    {dir, String.to_integer(n)}
+  end)
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+{points, folds}
+```
+
+## Part 1
+
+```elixir
+defmodule Day13 do
+end
+```
+
+```elixir
+{dir, n} = folds |> Enum.at(0) |> IO.inspect(label: "first fold")
+
+points
+|> Enum.reduce(MapSet.new(), fn {x, y}, visible ->
+  {x2, y2} =
+    case dir do
+      "x" ->
+        x =
+          if x > n do
+            x - 2 * (x - n)
+          else
+            x
+          end
+
+        {x, y}
+
+      "y" ->
+        y =
+          if y > n do
+            y - 2 * (y - n)
+          else
+            y
+          end
+
+        {x, y}
+    end
+
+  visible |> MapSet.put({x2, y2})
+end)
+|> IO.inspect(label: "visible")
+|> MapSet.size()
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 2
+
+```elixir
+{dir, n} = folds |> Enum.at(0) |> IO.inspect(label: "first fold")
+
+visible =
+  points
+  |> Enum.reduce(MapSet.new(), fn {x, y}, visible ->
+    p =
+      folds
+      |> Enum.reduce({x, y}, fn {dir, n}, {x, y} ->
+        case dir do
+          "x" ->
+            x =
+              if x > n do
+                x - 2 * (x - n)
+              else
+                x
+              end
+
+            {x, y}
+
+          "y" ->
+            y =
+              if y > n do
+                y - 2 * (y - n)
+              else
+                y
+              end
+
+            {x, y}
+        end
+      end)
+
+    visible |> MapSet.put(p)
+  end)
+  |> IO.inspect(label: "visible")
+
+{max_x, _} = visible |> Enum.max_by(fn {x, _} -> x end)
+{_, max_y} = visible |> Enum.max_by(fn {_, y} -> y end)
+
+points = for x <- 0..max_x, y <- 0..max_y, do: {x, y}
+
+Enum.reduce(0..max_y, [], fn y, lines ->
+  line =
+    Enum.map(0..max_x, fn x ->
+      if MapSet.member?(visible, {x, y}) do
+        "#"
+      else
+        "."
+      end
+    end)
+    |> Enum.join("")
+
+  [line | lines]
+end)
+|> Enum.reverse()
+|> Enum.join("\n")
+|> IO.puts()
+```
