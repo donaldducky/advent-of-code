@@ -1,0 +1,117 @@
+# Day 14
+
+## Setup
+
+```elixir
+input = Aoc.get_input(14)
+```
+
+```elixir
+textarea = Kino.Input.textarea("Puzzle input", default: input)
+```
+
+```elixir
+test_textarea = Kino.Input.textarea("Test input")
+```
+
+```elixir
+options = [
+  puzzle: "Puzzle",
+  test: "Test"
+]
+
+select = Kino.Input.select("Input source", options)
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+lines =
+  select
+  |> Kino.Input.read()
+  |> case do
+    :puzzle -> input
+    :test -> test_textarea |> Kino.Input.read()
+  end
+  |> String.split(["\n"], trim: true)
+```
+
+```elixir
+[template | rules] = lines
+
+template = String.split(template, "", trim: true)
+
+rules =
+  Enum.map(rules, &String.split(&1, " -> "))
+  |> Enum.map(fn [from, to] -> {String.split(from, "", trim: true), to} end)
+  |> Enum.into(%{})
+
+{template, rules}
+```
+
+## Part 1
+
+```elixir
+defmodule Day14 do
+end
+```
+
+```elixir
+freq =
+  1..10
+  |> Enum.reduce(template, fn _i, template ->
+    [first | _] = template
+
+    last =
+      template
+      |> Enum.chunk_every(2, 1, :discard)
+      |> Enum.flat_map(fn [_first, second] = pair ->
+        [Map.fetch!(rules, pair), second]
+      end)
+
+    [first | last]
+  end)
+  |> Enum.frequencies()
+
+{_, min} = Enum.min_by(freq, &elem(&1, 1))
+{_, max} = Enum.max_by(freq, &elem(&1, 1))
+max - min
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 2
+
+```elixir
+freq =
+  template
+  |> Enum.chunk_every(2, 1, :discard)
+  |> Enum.frequencies()
+
+pairs_freq =
+  1..40
+  |> Enum.reduce(freq, fn _i, freq ->
+    Enum.reduce(freq, %{}, fn {[a, b] = pair, c}, freq ->
+      r = Map.get(rules, pair)
+      # CH -> B becomes CB and BH
+      freq
+      |> Map.update([a, r], c, &(&1 + c))
+      |> Map.update([r, b], c, &(&1 + c))
+    end)
+  end)
+
+# count first letter of each pair
+freq =
+  pairs_freq
+  |> Enum.reduce(%{}, fn {[a, _b], c}, freq ->
+    Map.update(freq, a, c, &(&1 + c))
+  end)
+
+# we need to add 1 for the last letter in the template (it does not change)
+last_letter = template |> Enum.reverse() |> Enum.at(0)
+freq = Map.update(freq, last_letter, 1, &(&1 + 1))
+
+{_, min} = Enum.min_by(freq, &elem(&1, 1))
+{_, max} = Enum.max_by(freq, &elem(&1, 1))
+max - min
+```
