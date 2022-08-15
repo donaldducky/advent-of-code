@@ -1,3 +1,3 @@
 livebook:
-	LIVEBOOK_ROOT_PATH="$(PWD)/notebooks" LIVEBOOK_DEFAULT_RUNTIME="mix" livebook server
+	LIVEBOOK_HOME="$(PWD)/notebooks" LIVEBOOK_DEFAULT_RUNTIME="standalone" livebook server
 .PHONY: livebook
