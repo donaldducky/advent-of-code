@@ -1,6 +1,6 @@
 # Day 15
 
-## Section
+## Part 1
 
 ```elixir
 input = """
@@ -299,3 +299,174 @@ Aoc.get_distance(m, goal)
 ```
 
 ## Part 2
+
+```elixir
+# Djikstra
+# https://en.wikipedia.org/wiki/Dijkstra%27s_algorithm
+defmodule Aoc do
+  defstruct [
+    :risk_levels,
+    :visited,
+    :distances,
+    :to_visit,
+    :width,
+    :height,
+    :multiplier,
+    :mod_x,
+    :mod_y
+  ]
+
+  def new(risk_levels, start, width, height, multiplier) do
+    %__MODULE__{
+      risk_levels: risk_levels,
+      visited: MapSet.new(),
+      distances: Map.new(),
+      to_visit: [],
+      width: width,
+      height: height,
+      multiplier: multiplier,
+      mod_x: div(width, multiplier),
+      mod_y: div(height, multiplier)
+    }
+    |> put_distance(start, 0)
+    |> add_to_visit(start)
+  end
+
+  def put_distance(%__MODULE__{} = m, {x, y} = c, d)
+      when is_integer(x) and is_integer(y) and is_integer(d) do
+    {_, new_distances} =
+      Map.get_and_update(m.distances, c, fn
+        d0 when is_integer(d0) and d0 < d ->
+          {d0, d0}
+
+        d0 ->
+          {d0, d}
+      end)
+
+    %{m | distances: new_distances}
+  end
+
+  def get_distance(%__MODULE__{} = m, {_x, _y} = c) do
+    Map.get(m.distances, c)
+  end
+
+  def get_risk(%__MODULE__{} = m, {x, y}) do
+    nx = rem(x, m.mod_x)
+    ny = rem(y, m.mod_y)
+    dx = div(x, m.mod_x)
+    dy = div(y, m.mod_y)
+    distance = dx + dy
+    rem(Map.get(m.risk_levels, {nx, ny}) + distance - 1, 9) + 1
+  end
+
+  def unvisited_neighbours(%__MODULE__{} = m, {x, y}) do
+    [
+      {1, 0},
+      {-1, 0},
+      {0, 1},
+      {0, -1}
+    ]
+    |> Enum.map(fn {x1, y1} -> {x1 + x, y1 + y} end)
+    |> Enum.filter(&(MapSet.member?(m.visited, &1) !== true))
+    |> Enum.filter(fn {x, y} -> x >= 0 && x < m.width && y >= 0 && y < m.height end)
+  end
+
+  def add_to_visit(%__MODULE__{} = m, c) do
+    to_visit = [{get_distance(m, c), c} | m.to_visit]
+    %{m | to_visit: to_visit}
+  end
+
+  def set_visited(%__MODULE__{} = m, c) do
+    visited = MapSet.put(m.visited, c)
+    %{m | visited: visited}
+  end
+
+  def visit(%__MODULE__{} = m, {d, c}) do
+    unvisited_neighbours(m, c)
+    |> Enum.reduce(m, fn n, acc ->
+      r = get_risk(acc, n)
+      acc = put_distance(acc, n, d + r)
+
+      acc
+      |> put_distance(n, d + r)
+      |> add_to_visit(n)
+    end)
+    |> set_visited(c)
+  end
+
+  def tentative_distance(%__MODULE__{} = m, {_x, _y} = from, {_x2, _y2} = to) do
+    get_distance(m, from) + get_risk(m, to)
+  end
+
+  def pop_next(%__MODULE__{} = m) do
+    # find lowest risk node and pop it
+    # TODO use a min-heap instead of finding min and filtering by hand
+    {_d, c} = to_pop = Enum.min_by(m.to_visit, &(&1 |> elem(0)))
+    to_visit = m.to_visit |> Enum.reject(&(elem(&1, 1) == c))
+    {to_pop, %{m | to_visit: to_visit}}
+  end
+end
+```
+
+```elixir
+# test_input
+lines =
+  input
+  |> String.split("\n", trim: true)
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+risk_levels =
+  for {line, y} <- Enum.with_index(lines),
+      {c, x} <- Enum.with_index(String.split(line, "", trim: true)),
+      into: %{},
+      do: {{x, y}, String.to_integer(c)}
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+[first | _] = lines
+multiplier = 5
+width = String.length(first) * 5
+height = Enum.count(lines) * 5
+goal = {width - 1, height - 1}
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+m = Aoc.new(risk_levels, start, width, height, multiplier)
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+m.risk_levels |> Map.get({1, 0})
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+m =
+  Stream.iterate(0, &(&1 + 1))
+  |> Enum.reduce_while(m, fn _i, m ->
+    case m.to_visit do
+      [] ->
+        {:halt, m}
+
+      _ ->
+        {current, m} = Aoc.pop_next(m)
+        m = Aoc.visit(m, current)
+        {:cont, m}
+    end
+  end)
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+Aoc.get_distance(m, goal)
+```
