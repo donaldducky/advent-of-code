@@ -1,0 +1,329 @@
+# Day 16
+
+## Part 1
+
+```elixir
+input = """
+E0529D18025800ABCA6996534CB22E4C00FB48E233BAEC947A8AA010CE1249DB51A02CC7DB67EF33D4002AE6ACDC40101CF0449AE4D9E4C071802D400F84BD21CAF3C8F2C35295EF3E0A600848F77893360066C200F476841040401C88908A19B001FD35CCF0B40012992AC81E3B980553659366736653A931018027C87332011E2771FFC3CEEC0630A80126007B0152E2005280186004101060C03C0200DA66006B8018200538012C01F3300660401433801A6007380132DD993100A4DC01AB0803B1FE2343500042E24C338B33F5852C3E002749803B0422EC782004221A41A8CE600EC2F8F11FD0037196CF19A67AA926892D2C643675A0C013C00CC0401F82F1BA168803510E3942E969C389C40193CFD27C32E005F271CE4B95906C151003A7BD229300362D1802727056C00556769101921F200AC74015960E97EC3F2D03C2430046C0119A3E9A3F95FD3AFE40132CEC52F4017995D9993A90060729EFCA52D3168021223F2236600ECC874E10CC1F9802F3A71C00964EC46E6580402291FE59E0FCF2B4EC31C9C7A6860094B2C4D2E880592F1AD7782992D204A82C954EA5A52E8030064D02A6C1E4EA852FE83D49CB4AE4020CD80272D3B4AA552D3B4AA5B356F77BF1630056C0119FF16C5192901CEDFB77A200E9E65EAC01693C0BCA76FEBE73487CC64DEC804659274A00CDC401F8B51CE3F8803B05217C2E40041A72E2516A663F119AC72250A00F44A98893C453005E57415A00BCD5F1DD66F3448D2600AC66F005246500C9194039C01986B317CDB10890C94BF68E6DF950C0802B09496E8A3600BCB15CA44425279539B089EB7774DDA33642012DA6B1E15B005C0010C8C917A2B880391160944D30074401D845172180803D1AA3045F00042630C5B866200CC2A9A5091C43BBD964D7F5D8914B46F040
+"""
+```
+
+```elixir
+# 110100101111111000101000
+# VVVTTTAAAAABBBBBCCCCC
+bin_string = "D2FE28" |> String.trim() |> String.to_integer(16) |> Integer.to_string(2)
+```
+
+```elixir
+# first 3 bits are version
+<<version::binary-size(3)>> <> rest = bin_string
+{version, rest}
+```
+
+```elixir
+# next 3 bits are packet type id
+<<packet_type_id::binary-size(3)>> <> rest = rest
+{version, packet_type_id, rest}
+```
+
+```elixir
+# version and packet_type_id are numbers
+version = String.to_integer(version, 2)
+packet_type_id = String.to_integer(packet_type_id, 2)
+{version, packet_type_id, rest}
+```
+
+```elixir
+# packet_type_id 4 is a literal value
+case packet_type_id do
+  4 ->
+    {version, "literal", rest}
+end
+```
+
+```elixir
+# Using binary matching
+for <<chunk::size(5)-binary <- rest>>, do: chunk
+```
+
+```elixir
+# Using string manipulation + streaming
+rest
+|> String.codepoints()
+|> Stream.chunk_every(5)
+|> Enum.take(3)
+|> Enum.map(&Enum.join(&1, ""))
+```
+
+```elixir
+# 5 bit chunks
+# each chunk is prefixed by 1
+# last chunk is prefixed by 0
+chunks =
+  rest
+  |> String.codepoints()
+  |> Stream.chunk_every(5)
+  |> Stream.map(&Enum.join(&1, ""))
+  |> Enum.reduce_while([], fn
+    "1" <> x, acc ->
+      {:cont, [x | acc]}
+
+    "0" <> x, acc ->
+      {:halt, [x | acc]}
+  end)
+  |> Enum.reverse()
+```
+
+```elixir
+# When the groups are joined a literal binary is formed and converted to decimal
+chunks |> Enum.join("") |> String.to_integer(2)
+```
+
+```elixir
+# packet_type_id != 4 is an operator
+case packet_type_id do
+  4 ->
+    {version, "literal", rest}
+
+  _ ->
+    {version, "operator", rest}
+end
+```
+
+```elixir
+# Operator packet (packet_type_id != 4)
+# 00111000000000000110111101000101001010010001001000000000
+# VVVTTTILLLLLLLLLLLLLLLAAAAAAAAAAABBBBBBBBBBBBBBBB
+#       ^
+# I is the length type id
+packet = "00111000000000000110111101000101001010010001001000000000"
+
+<<version::binary-size(3), packet_type_id::binary-size(3), length_type_id::binary-size(1),
+  rest::binary>> = packet
+
+{version, packet_type_id, length_type_id, rest}
+```
+
+```elixir
+# length_type_id = 0
+# next 15 bits are a number that represents total length in bits of the sub-packets
+#
+# length_type_id = 1
+# next 11 bits are a number that represents number of sub-packets in this packet
+<<version::binary-size(3), packet_type_id::binary-size(3), "0", num_bits::binary-size(15),
+  rest::binary>> = packet
+
+{version, packet_type_id, "0", num_bits, rest}
+```
+
+```elixir
+# total length in bits of sub-packets
+s = num_bits |> String.to_integer(2)
+```
+
+```elixir
+# bits in sub-packets
+<<sub_packet_bits::binary-size(s), rest::binary>> = rest
+{sub_packet_bits, rest}
+```
+
+```elixir
+# Example
+test_packet = "00111000000000000110111101000101001010010001001000000000"
+
+<<version::binary-size(3), packet_type_id::binary-size(3), "0", num_bits::binary-size(15),
+  rest::binary>> = test_packet
+
+{version, packet_type_id, "0", num_bits, rest}
+```
+
+```elixir
+s = num_bits |> String.to_integer(2)
+<<sub_packet_bits::binary-size(s), rest::binary>> = rest
+{version, packet_type_id, "bit length", s, sub_packet_bits, rest}
+```
+
+```elixir
+<<v1::binary-size(3), p1::binary-size(3), rest::binary>> = sub_packet_bits
+v1 = String.to_integer(v1, 2)
+p1 = String.to_integer(p1, 2)
+{v1, p1, rest}
+```
+
+```elixir
+# for <<chunk::size(5)-binary <- rest>>, do: chunk
+# starting with
+#   010100101001000100100
+# parse out the literal chunks of 5
+#   01010 0101001000100100
+# 2 strings with the literal and rest
+#   "1010" "0101001000100100"
+# return the number and the rest of the packets
+#   {10, "0101001000100100"}
+
+# Need module to do recursion (cannot do it with anonymous functions)
+defmodule P do
+  def parse_literal(bin) do
+    parse_literal("", bin)
+  end
+
+  def parse_literal(acc, <<"1", bits::binary-size(4), rest::binary>>) do
+    parse_literal(acc <> bits, rest)
+  end
+
+  def parse_literal(acc, <<"0", bits::binary-size(4), rest::binary>>) do
+    {(acc <> bits) |> String.to_integer(2), rest}
+  end
+end
+
+{a, rest} = P.parse_literal(rest)
+```
+
+```elixir
+rest |> IO.puts()
+<<v2::binary-size(3), p2::binary-size(3), rest::binary>> = rest
+v2 = String.to_integer(v2, 2)
+p2 = String.to_integer(p2, 2)
+{v2, p2, rest}
+```
+
+```elixir
+P.parse_literal(rest)
+```
+
+## Part 1
+
+```elixir
+defmodule PacketDecoder do
+  def decode(packet) do
+    metadata = %{
+      version_sum: 0
+    }
+
+    packet
+    |> String.trim()
+    |> IO.inspect(label: "hex")
+    |> hex_to_bin()
+    |> IO.inspect(label: "binary")
+    |> parse_packet(metadata)
+  end
+
+  # when converting to binary
+  # we also need to pad leading 0s
+  def hex_to_bin(hex) do
+    n_chars = hex |> String.length()
+    pad_to = n_chars * 4
+
+    hex
+    |> String.to_integer(16)
+    |> Integer.to_string(2)
+    |> String.pad_leading(pad_to, "0")
+  end
+
+  def parse_packet(
+        <<version::binary-size(3), type_id::binary-size(3), rest::binary>> = packet,
+        metadata
+      ) do
+    packet |> IO.inspect(label: "packet")
+    version = version |> String.to_integer(2)
+    type_id = type_id |> String.to_integer(2)
+
+    metadata = Map.update!(metadata, :version_sum, &(&1 + version))
+
+    case type_id do
+      4 ->
+        # literal
+        rest |> IO.inspect(label: "parse literal")
+        {literal, rest, metadata} = parse_literal(rest, metadata)
+        {{version, "literal", literal}, rest, metadata}
+
+      _ ->
+        # operator
+        rest |> IO.inspect(label: "parse operator")
+        {sub_packets, rest, metadata} = parse_operator(rest, metadata)
+        {{version, "operator", sub_packets}, rest, metadata}
+        # {version, type_id, "operator", rest}
+    end
+  end
+
+  def parse_literal(bin, metadata) do
+    parse_literal("", bin, metadata)
+  end
+
+  defp parse_literal(acc, <<"1", bits::binary-size(4), rest::binary>>, metadata) do
+    bits |> IO.inspect(label: "parsed bits 1")
+    parse_literal(acc <> bits, rest, metadata)
+  end
+
+  defp parse_literal(acc, <<"0", bits::binary-size(4), rest::binary>>, metadata) do
+    bits |> IO.inspect(label: "parsed bits 0")
+    literal = (acc <> bits) |> String.to_integer(2)
+    {literal, rest, metadata}
+  end
+
+  def parse_operator(<<"0", n::binary-size(15), rest::binary>>, metadata) do
+    s =
+      n
+      |> String.to_integer(2)
+      |> IO.inspect(label: "sub_packet bits")
+
+    <<sub_packets_bin::binary-size(s), rest::binary>> = rest
+
+    Stream.iterate(0, &(&1 + 1))
+    |> Enum.reduce_while({[], sub_packets_bin, metadata}, fn
+      _, {packets, "", metadata} ->
+        {:halt, {packets, rest, metadata}}
+
+      _, {packets, rest, metadata} ->
+        {packet, rest, metadata} = parse_packet(rest, metadata)
+        {:cont, {[packet | packets], rest, metadata}}
+    end)
+  end
+
+  def parse_operator(<<"1", n::binary-size(11), rest::binary>>, metadata) do
+    s = n |> String.to_integer(2) |> IO.inspect(label: "sub_packet count")
+
+    Stream.iterate(0, &(&1 + 1))
+    |> Enum.reduce_while({[], rest, metadata}, fn
+      ^s, {packets, rest, metadata} ->
+        {:halt, {packets, rest, metadata}}
+
+      s, {packets, rest, metadata} ->
+        rest |> IO.inspect(label: "packet ##{s}")
+        {packet, rest, metadata} = parse_packet(rest, metadata)
+        {:cont, {[packet | packets], rest, metadata}}
+    end)
+  end
+end
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+PacketDecoder.decode("D2FE28")
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+PacketDecoder.decode("38006F45291200")
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+PacketDecoder.decode("EE00D40C823060")
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+PacketDecoder.decode("A0016C880162017C3686B18A3D4780")
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+{_tree, _rest, metadata} = input |> PacketDecoder.decode()
+metadata.version_sum
+```
