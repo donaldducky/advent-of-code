@@ -51,7 +51,7 @@ defmodule PacketDecoder do
       _ ->
         # operator
         {sub_packets, rest, metadata} = parse_operator(rest, metadata)
-        {{version, "operator", sub_packets}, rest, metadata}
+        {{version, type_id, sub_packets}, rest, metadata}
     end
   end
 
@@ -97,6 +97,62 @@ defmodule PacketDecoder do
         {:cont, {[packet | packets], rest, metadata}}
     end)
   end
+
+  def resolve(tree) do
+    tree |> resolve_value()
+  end
+
+  defp resolve_value({_version, "literal", value}) when is_integer(value) do
+    value
+  end
+
+  defp resolve_value({_version, 0, nodes}) when is_list(nodes) do
+    nodes
+    |> Enum.map(&resolve_value/1)
+    |> Enum.sum()
+  end
+
+  defp resolve_value({_version, 1, nodes}) when is_list(nodes) do
+    nodes
+    |> Enum.map(&resolve_value/1)
+    |> Enum.product()
+  end
+
+  defp resolve_value({_version, 2, nodes}) when is_list(nodes) do
+    nodes
+    |> Enum.map(&resolve_value/1)
+    |> Enum.min()
+  end
+
+  defp resolve_value({_version, 3, nodes}) when is_list(nodes) do
+    nodes
+    |> Enum.map(&resolve_value/1)
+    |> Enum.max()
+  end
+
+  defp resolve_value({_version, 5, [a, b] = nodes}) when is_list(nodes) do
+    if resolve_value(a) < resolve_value(b) do
+      1
+    else
+      0
+    end
+  end
+
+  defp resolve_value({_version, 6, [a, b] = nodes}) when is_list(nodes) do
+    if resolve_value(a) > resolve_value(b) do
+      1
+    else
+      0
+    end
+  end
+
+  defp resolve_value({_version, 7, [a, b] = nodes}) when is_list(nodes) do
+    if resolve_value(a) == resolve_value(b) do
+      1
+    else
+      0
+    end
+  end
 end
 ```
 
@@ -105,4 +161,41 @@ end
 ```elixir
 {_tree, _rest, metadata} = input |> PacketDecoder.decode()
 metadata.version_sum
+```
+
+## Part 2
+
+```elixir
+"""
+C200B40A82 finds the sum of 1 and 2, resulting in the value 3.
+04005AC33890 finds the product of 6 and 9, resulting in the value 54.
+880086C3E88112 finds the minimum of 7, 8, and 9, resulting in the value 7.
+CE00C43D881120 finds the maximum of 7, 8, and 9, resulting in the value 9.
+D8005AC2A8F0 produces 1, because 5 is less than 15.
+F600BC2D8F produces 0, because 5 is not greater than 15.
+9C005AC2F8F0 produces 0, because 5 is not equal to 15.
+9C0141080250320F1802104A08 produces 1, because 1 + 3 = 2 * 2.
+"""
+|> String.split("\n", trim: true)
+|> Enum.map(&String.split(&1, " "))
+|> Enum.map(&Enum.at(&1, 0))
+|> Enum.map(&PacketDecoder.decode(&1))
+|> Enum.map(&elem(&1, 0))
+|> Enum.map(&PacketDecoder.resolve(&1))
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+{tree, _, _} =
+  input
+  |> PacketDecoder.decode()
+
+tree
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+PacketDecoder.resolve(tree)
 ```
