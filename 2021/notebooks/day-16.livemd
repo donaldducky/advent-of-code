@@ -1,5 +1,11 @@
 # Day 16
 
+```elixir
+Mix.install([
+  {:kino, "~> 0.7.0"}
+])
+```
+
 ## Part 1
 
 ```elixir
@@ -198,4 +204,62 @@ tree
 
 ```elixir
 PacketDecoder.resolve(tree)
+```
+
+## Visual
+
+````elixir
+defmodule TreeRenderer do
+  def render(tree) do
+    tree
+    |> to_markdown(0, ["flowchart TB", "```mermaid"])
+    |> elem(2)
+    |> then(fn lines -> ["```" | lines] end)
+    |> Enum.reverse()
+    |> Enum.join("\n")
+    |> Kino.Markdown.new()
+  end
+
+  defp to_markdown({_version, "literal", value}, c, lines) when is_integer(value) do
+    line = "node_#{c}[#{value}]"
+
+    {%{id: c, value: value}, c + 1, [line | lines]}
+  end
+
+  defp to_markdown({_version, type_id, sub_nodes}, c, lines) when is_list(sub_nodes) do
+    node = %{id: c, value: type_id_to_value(type_id)}
+
+    line = "node_#{node.id}[#{node.value}]"
+    lines = [line | lines]
+
+    {c, lines} =
+      sub_nodes
+      |> Enum.reduce({c, lines}, fn sub_node, {c, lines} ->
+        {sub_node, c, lines} = to_markdown(sub_node, c + 1, lines)
+        line = "node_#{node.id} --> node_#{sub_node.id}"
+        lines = [line | lines]
+        {c, lines}
+      end)
+
+    {node, c + 1, lines}
+  end
+
+  defp type_id_to_value(0), do: "+"
+  defp type_id_to_value(1), do: "*"
+  defp type_id_to_value(2), do: "min"
+  defp type_id_to_value(3), do: "max"
+  defp type_id_to_value(5), do: "lt"
+  defp type_id_to_value(6), do: "gt"
+  defp type_id_to_value(7), do: "eq"
+end
+````
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+# "9C0141080250320F1802104A08"
+|> PacketDecoder.decode()
+|> elem(0)
+|> TreeRenderer.render()
 ```
