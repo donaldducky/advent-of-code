@@ -1,0 +1,90 @@
+# Day 17
+
+## Part 1
+
+```elixir
+input = "target area: x=241..275, y=-75..-49"
+```
+
+```elixir
+test_input = "target area: x=20..30, y=-10..-5"
+```
+
+```elixir
+[x1, x2, y1, y2] =
+  Regex.run(~r"target area: x=(-?\d+)\.\.(-?\d+), y=(-?\d+)..(-?\d+)", input)
+  |> Enum.drop(1)
+  |> Enum.map(&String.to_integer/1)
+```
+
+```elixir
+step = fn %{x: x, y: y, vx: vx, vy: vy, max_y: max_y, t: t} = probe ->
+  # probe |> IO.inspect(label: "probe")
+  x = x + vx
+  y = y + vy
+
+  vx =
+    case vx do
+      vx when vx > 0 -> vx - 1
+      vx when vx < 0 -> vx + 1
+      0 -> 0
+    end
+
+  vy = vy - 1
+  max_y = max(y, max_y)
+
+  %{probe | x: x, y: y, vx: vx, vy: vy, max_y: max_y, t: t + 1}
+end
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+step_until_target = fn probe ->
+  Stream.iterate(0, &(&1 + 1))
+  |> Enum.reduce_while(probe, fn _, %{x: x, y: y, x1: x1, x2: x2, y1: y1, y2: y2} = acc ->
+    cond do
+      x > x2 || y < y1 ->
+        {:halt, {:miss, acc}}
+
+      x in x1..x2 && y in y1..y2 ->
+        {:halt, {:hit, acc}}
+
+      true ->
+        {:cont, step.(acc)}
+    end
+  end)
+end
+```
+
+```elixir
+launch = fn vx, vy, x1, x2, y1, y2 ->
+  probe = %{
+    x: 0,
+    y: 0,
+    vx: vx,
+    vy: vy,
+    max_y: 0,
+    t: 0,
+    x1: x1,
+    x2: x2,
+    y1: y1,
+    y2: y2,
+    sx: vx,
+    sy: vy
+  }
+
+  step_until_target.(probe)
+end
+```
+
+```elixir
+for(x <- 0..100, y <- 0..100, do: {x, y})
+|> Enum.map(fn {x, y} -> launch.(x, y, x1, x2, y1, y2) end)
+|> Enum.filter(fn
+  {:miss, _} -> false
+  {:hit, _} -> true
+end)
+|> Enum.map(fn {:hit, p} -> p.max_y end)
+|> Enum.max()
+```
