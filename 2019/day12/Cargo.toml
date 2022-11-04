@@ -8,4 +8,4 @@ edition = "2018"
 
 [dependencies]
 regex = "1"
-num = "0.1.32"
+num = "0.4"
