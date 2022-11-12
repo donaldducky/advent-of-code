@@ -1,6 +1,6 @@
 # Day 17
 
-## Part 1
+## Input
 
 ```elixir
 input = "target area: x=241..275, y=-75..-49"
@@ -11,10 +11,11 @@ test_input = "target area: x=20..30, y=-10..-5"
 ```
 
 ```elixir
-[x1, x2, y1, y2] =
+parse_input = fn input ->
   Regex.run(~r"target area: x=(-?\d+)\.\.(-?\d+), y=(-?\d+)..(-?\d+)", input)
   |> Enum.drop(1)
   |> Enum.map(&String.to_integer/1)
+end
 ```
 
 ```elixir
@@ -78,6 +79,12 @@ launch = fn vx, vy, x1, x2, y1, y2 ->
 end
 ```
 
+## Part 1
+
+```elixir
+[x1, x2, y1, y2] = parse_input.(input)
+```
+
 ```elixir
 for(x <- 0..100, y <- 0..100, do: {x, y})
 |> Enum.map(fn {x, y} -> launch.(x, y, x1, x2, y1, y2) end)
@@ -87,4 +94,26 @@ for(x <- 0..100, y <- 0..100, do: {x, y})
 end)
 |> Enum.map(fn {:hit, p} -> p.max_y end)
 |> Enum.max()
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 2
+
+```elixir
+[x1, x2, y1, y2] = parse_input.(input)
+```
+
+```elixir
+max_x = x2
+```
+
+```elixir
+for(x <- 0..max_x, y <- -y1..y1, do: {x, y})
+|> Enum.map(fn {x, y} -> launch.(x, y, x1, x2, y1, y2) end)
+|> Enum.filter(fn
+  {:miss, _} -> false
+  {:hit, _} -> true
+end)
+|> Enum.count()
 ```
