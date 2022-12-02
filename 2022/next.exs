@@ -57,4 +57,10 @@ case next.() do
     IO.write("Writing #{f}...")
     File.write!(f, template.(n))
     IO.puts("✅")
+
+    q = %{
+      url: "file://#{f}"
+    }
+
+    System.cmd("open", ["http://localhost:8080/import?#{URI.encode_query(q)}"])
 end
