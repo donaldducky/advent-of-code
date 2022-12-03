@@ -1,0 +1,71 @@
+# Advent of Code 2022
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 3
+
+```elixir
+input =
+  "https://adventofcode.com/2022/day/3/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+## Part 1
+
+```elixir
+input
+|> String.split("\n", trim: true)
+|> Enum.map(fn s ->
+  String.split_at(s, div(String.length(s), 2))
+  |> Tuple.to_list()
+  |> Enum.map(fn s ->
+    String.split(s, "", trim: true)
+    |> MapSet.new()
+  end)
+  |> Enum.reduce(fn s, acc ->
+    MapSet.intersection(s, acc)
+  end)
+  |> MapSet.to_list()
+  |> Enum.at(0)
+  |> :binary.first()
+  |> case do
+    n when n >= 97 ->
+      n - 96
+
+    n ->
+      n - 38
+  end
+end)
+|> Enum.sum()
+```
+
+## Part 2
+
+```elixir
+input
+|> String.split("\n", trim: true)
+|> Enum.chunk_every(3)
+|> Enum.map(fn groups ->
+  groups
+  |> Enum.map(fn g ->
+    String.split(g, "", trim: true) |> MapSet.new()
+  end)
+  |> Enum.reduce(fn g, acc -> MapSet.intersection(acc, g) end)
+  |> MapSet.to_list()
+  |> Enum.at(0)
+  |> :binary.first()
+  |> case do
+    n when n >= 97 ->
+      n - 96
+
+    n ->
+      n - 38
+  end
+end)
+|> Enum.sum()
+```
