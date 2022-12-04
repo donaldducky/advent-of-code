@@ -1,0 +1,57 @@
+# Advent of Code 2022
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 4
+
+```elixir
+input =
+  "https://adventofcode.com/2022/day/4/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+## Part 1
+
+```elixir
+input
+|> String.split("\n", trim: true)
+|> Enum.map(fn line ->
+  line
+  |> String.split(",")
+  |> Enum.map(fn pair ->
+    pair
+    |> String.split("-")
+    |> Enum.map(&String.to_integer(&1))
+  end)
+end)
+|> Enum.filter(fn [[x1, y1], [x2, y2]] ->
+  (x1 <= x2 && y1 >= y2) || (x2 <= x1 && y2 >= y1)
+end)
+|> Enum.count()
+```
+
+## Part 2
+
+```elixir
+input
+|> String.split("\n", trim: true)
+|> Enum.map(fn line ->
+  line
+  |> String.split(",")
+  |> Enum.map(fn pair ->
+    pair
+    |> String.split("-")
+    |> Enum.map(&String.to_integer(&1))
+  end)
+end)
+|> Enum.filter(fn [[x1, y1], [x2, y2]] ->
+  (x1 >= x2 && x1 <= y2) || (y1 >= x2 && y1 <= y2) || (x2 >= x1 && x2 <= y1) ||
+    (y2 >= x1 && y2 <= y1)
+end)
+|> Enum.count()
+```
