@@ -35,6 +35,26 @@ end)
 |> Enum.count()
 ```
 
+```elixir
+input
+|> String.split("\n", trim: true)
+|> Enum.map(fn line ->
+  line
+  |> String.split(",")
+  |> Enum.map(fn pair ->
+    pair
+    |> String.split("-")
+    |> Enum.map(&String.to_integer(&1))
+  end)
+end)
+|> Enum.filter(fn [[x1, y1], [x2, y2]] ->
+  a = MapSet.new(Range.new(x1, y1))
+  b = MapSet.new(Range.new(x2, y2))
+  MapSet.subset?(a, b) || MapSet.subset?(b, a)
+end)
+|> Enum.count()
+```
+
 ## Part 2
 
 ```elixir
@@ -52,6 +72,44 @@ end)
 |> Enum.filter(fn [[x1, y1], [x2, y2]] ->
   (x1 >= x2 && x1 <= y2) || (y1 >= x2 && y1 <= y2) || (x2 >= x1 && x2 <= y1) ||
     (y2 >= x1 && y2 <= y1)
+end)
+|> Enum.count()
+```
+
+## Alternate Solutions
+
+Parse using regex and convert to ranges:
+
+```elixir
+lines =
+  input
+  |> String.split("\n", trim: true)
+  |> Enum.map(fn line ->
+    Regex.run(~r/(\d+)-(\d+),(\d+)-(\d+)/, line)
+    |> tl()
+    |> Enum.map(&String.to_integer/1)
+    |> then(fn [a, b, c, d] -> {a..b, c..d} end)
+  end)
+```
+
+For part 1, use `MapSet.subset?`:
+
+```elixir
+lines
+|> Enum.filter(fn {r1, r2} ->
+  a = MapSet.new(r1)
+  b = MapSet.new(r2)
+  MapSet.subset?(a, b) || MapSet.subset?(b, a)
+end)
+|> Enum.count()
+```
+
+For part 2, use `Range.disjoint?/2`:
+
+```elixir
+lines
+|> Enum.filter(fn {r1, r2} ->
+  !Range.disjoint?(r1, r2)
 end)
 |> Enum.count()
 ```
