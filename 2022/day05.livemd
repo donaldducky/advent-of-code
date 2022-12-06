@@ -1,0 +1,173 @@
+# Advent of Code 2022
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 5
+
+```elixir
+input =
+  "https://adventofcode.com/2022/day/5/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+    [D]    
+[N] [C]    
+[Z] [M] [P]
+ 1   2   3 
+
+move 1 from 2 to 1
+move 3 from 1 to 3
+move 2 from 2 to 1
+move 1 from 1 to 2
+"""
+```
+
+## Part 1
+
+```elixir
+%{false: stacks, true: ops} =
+  input
+  |> String.split("\n", trim: true)
+  |> Enum.filter(&(!String.starts_with?(&1, " 1")))
+  |> Enum.group_by(&String.starts_with?(&1, "move"))
+
+# |> dbg()
+```
+
+```elixir
+stacks =
+  stacks
+  |> Enum.map(fn line ->
+    Regex.scan(~r/(   |\[\w]) ?/, line, capture: :all_but_first)
+    |> Enum.map(fn
+      ["   "] -> nil
+      [s] -> String.replace(s, ~r"[\[\]]", "")
+    end)
+  end)
+  # transpose
+  |> Enum.zip_with(& &1)
+  |> Enum.map(fn stack ->
+    stack
+    |> Enum.filter(& &1)
+  end)
+  # turn into a map
+  |> Enum.with_index()
+  |> Map.new(fn {v, k} -> {k + 1, v} end)
+```
+
+```elixir
+n_stacks = stacks |> Map.keys() |> Enum.count()
+```
+
+```elixir
+ops =
+  Enum.map(ops, fn line ->
+    Regex.run(~r/move (\d+) from (\d+) to (\d+)/, line)
+    |> tl()
+    |> Enum.map(&String.to_integer/1)
+  end)
+```
+
+```elixir
+stacks =
+  Enum.reduce(ops, stacks, fn [n, from, to], acc ->
+    Enum.reduce(1..n, acc, fn _, stacks ->
+      to_stack = [hd(stacks[from]) | stacks[to]]
+      from_stack = tl(stacks[from])
+
+      stacks
+      |> Map.put(from, from_stack)
+      |> Map.put(to, to_stack)
+    end)
+  end)
+```
+
+```elixir
+# list is built in reverse
+n_stacks..1
+|> Enum.reduce([], fn k, acc ->
+  [hd(stacks[k]) | acc]
+end)
+|> Enum.join()
+```
+
+## Part 2
+
+```elixir
+%{false: stacks, true: ops} =
+  input
+  |> String.split("\n", trim: true)
+  |> Enum.filter(&(!String.starts_with?(&1, " 1")))
+  |> Enum.group_by(&String.starts_with?(&1, "move"))
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+stacks =
+  stacks
+  |> Enum.map(fn line ->
+    Regex.scan(~r/(   |\[\w]) ?/, line, capture: :all_but_first)
+    |> Enum.map(fn
+      ["   "] -> nil
+      [s] -> String.replace(s, ~r"[\[\]]", "")
+    end)
+  end)
+  # transpose
+  |> Enum.zip_with(& &1)
+  |> Enum.map(fn stack ->
+    stack
+    |> Enum.filter(& &1)
+  end)
+  # turn into a map
+  |> Enum.with_index()
+  |> Map.new(fn {v, k} -> {k + 1, v} end)
+```
+
+```elixir
+n_stacks = stacks |> Map.keys() |> Enum.count()
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+ops =
+  Enum.map(ops, fn line ->
+    Regex.run(~r/move (\d+) from (\d+) to (\d+)/, line)
+    |> tl()
+    |> Enum.map(&String.to_integer/1)
+  end)
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+stacks =
+  Enum.reduce(ops, stacks, fn [n, from, to], acc ->
+    crates = acc[from] |> Enum.take(n)
+    to_stack = crates ++ acc[to]
+    from_stack = acc[from] -- crates
+
+    acc
+    |> Map.put(from, from_stack)
+    |> Map.put(to, to_stack)
+  end)
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+# list is built in reverse
+n_stacks..1
+|> Enum.reduce([], fn k, acc ->
+  [hd(stacks[k]) | acc]
+end)
+|> Enum.join()
+```
