@@ -1,0 +1,72 @@
+# Advent of Code 2022
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 6
+
+```elixir
+input =
+  "https://adventofcode.com/2022/day/6/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+letters =
+  input
+  |> String.split("", trim: true)
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 1
+
+```elixir
+n = 4
+```
+
+```elixir
+Stream.iterate(0, &(&1 + 1))
+|> Enum.reduce_while(letters, fn i, acc ->
+  acc
+  |> Enum.slice(0..(n - 1))
+  |> MapSet.new()
+  |> then(fn set ->
+    if MapSet.size(set) == n do
+      {:halt, i}
+    else
+      {:cont, tl(acc)}
+    end
+  end)
+end)
+|> then(&(&1 + n))
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 2
+
+```elixir
+n = 14
+```
+
+```elixir
+Stream.iterate(0, &(&1 + 1))
+|> Enum.reduce_while(letters, fn i, acc ->
+  acc
+  |> Enum.slice(0..(n - 1))
+  |> MapSet.new()
+  |> then(fn set ->
+    if MapSet.size(set) == n do
+      {:halt, i}
+    else
+      {:cont, tl(acc)}
+    end
+  end)
+end)
+|> then(&(&1 + n))
+```
