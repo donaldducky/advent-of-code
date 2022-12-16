@@ -1,0 +1,166 @@
+# Advent of Code 2022
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 7
+
+```elixir
+input =
+  "https://adventofcode.com/2022/day/7/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+$ cd /
+$ ls
+dir a
+14848514 b.txt
+8504156 c.dat
+dir d
+$ cd a
+$ ls
+dir e
+29116 f
+2557 g
+62596 h.lst
+$ cd e
+$ ls
+584 i
+$ cd ..
+$ cd ..
+$ cd d
+$ ls
+4060174 j
+8033020 d.log
+5626152 d.ext
+7214296 k
+"""
+```
+
+```elixir
+lines =
+  input
+  # sample
+  |> String.split("\n", trim: true)
+```
+
+## Part 1
+
+```elixir
+{_cwd, dirs} =
+  lines
+  |> Enum.reduce({nil, %{}}, fn
+    "$ cd /", {_, tree} ->
+      {"/", Map.put(tree, "/", [])}
+
+    "$ ls", acc ->
+      acc
+
+    <<"dir " <> dir>>, {cwd, tree} ->
+      dir =
+        Path.join(cwd, dir)
+        |> IO.inspect(label: "dir")
+
+      tree =
+        Map.update!(tree, cwd, &[{:dir, dir} | &1])
+        |> Map.update(dir, [], & &1)
+
+      {cwd, tree}
+
+    "$ cd ..", {cwd, tree} ->
+      IO.puts("cd ..")
+
+      cwd =
+        String.split(cwd, "/")
+        |> Enum.reverse()
+        |> tl()
+        |> Enum.reverse()
+        |> Enum.join("/")
+        |> then(fn
+          "" -> "/"
+          path -> path
+        end)
+        |> IO.inspect(label: "$")
+
+      {cwd, tree}
+
+    <<"$ cd " <> dir>>, {cwd, tree} ->
+      cwd = Path.join(cwd, dir)
+
+      {cwd, tree}
+
+    file, {cwd, tree} ->
+      [size, file] = String.split(file, " ")
+      {cwd, Map.update!(tree, cwd, &[{:file, file, String.to_integer(size)} | &1])}
+  end)
+```
+
+```elixir
+defmodule Day7 do
+  def build_tree(path, dirs) do
+    children =
+      Map.get(dirs, path)
+      |> Enum.map(fn
+        {:dir, dir} -> build_tree(dir, dirs)
+        {:file, _, _} = file -> file
+      end)
+
+    {:dir, path, children}
+  end
+
+  def calculate_sizes(tree) do
+    {:dir, path, children} = tree
+
+    get_sizes(path, children, %{})
+    |> elem(0)
+  end
+
+  defp get_sizes(path, nodes, sizes) do
+    # path |> IO.inspect(label: "path")
+    {sizes, total} =
+      Enum.reduce(nodes, {sizes, 0}, fn
+        {:dir, path, children}, {sizes, total} ->
+          {sizes, dir_size} = get_sizes(path, children, sizes)
+          {sizes, dir_size + total}
+
+        {:file, _name, size}, {sizes, total} ->
+          {sizes, size + total}
+      end)
+
+    {Map.put(sizes, path, total), total}
+  end
+end
+
+tree =
+  Day7.build_tree("/", dirs)
+  |> Day7.calculate_sizes()
+  |> Enum.map(fn {_k, v} -> v end)
+  |> Enum.filter(&(&1 <= 100_000))
+  |> Enum.sum()
+```
+
+## Part 2
+
+```elixir
+sizes =
+  Day7.build_tree("/", dirs)
+  |> Day7.calculate_sizes()
+
+total_disk = 70_000_000
+required = 30_000_000
+current = Map.get(sizes, "/")
+to_delete = current - (total_disk - required)
+```
+
+```elixir
+sizes
+|> Enum.map(fn {_k, v} -> v end)
+|> Enum.filter(&(&1 >= to_delete))
+|> Enum.min()
+```
