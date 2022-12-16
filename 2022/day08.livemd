@@ -1,0 +1,130 @@
+# Advent of Code 2022
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 8
+
+```elixir
+input =
+  "https://adventofcode.com/2022/day/8/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+30373
+25512
+65332
+33549
+35390
+"""
+```
+
+```elixir
+lines =
+  input
+  |> String.split("\n", trim: true)
+  |> Enum.map(fn line ->
+    String.split(line, "", trim: true)
+    |> Enum.map(&String.to_integer/1)
+  end)
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+height_map =
+  for {line, y} <- Enum.with_index(lines),
+      {n, x} <- Enum.with_index(line),
+      into: %{},
+      do: {{x, y}, n}
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+height_map
+|> Enum.filter(fn {{x, y}, h} ->
+  {x, y} |> IO.inspect()
+
+  [
+    {1, 0},
+    {-1, 0},
+    {0, 1},
+    {0, -1}
+  ]
+  |> Enum.any?(fn {dx, dy} ->
+    Stream.iterate(0, &(&1 + 1))
+    |> Enum.reduce_while({{x, y}, h}, fn _i, {{x0, y0}, h0} ->
+      c = {x0 + dx, y0 + dy}
+
+      case Map.get(height_map, c) do
+        nil ->
+          {:halt, true}
+
+        h1 when h1 < h0 ->
+          {:cont, {c, h}}
+
+        _ ->
+          {:halt, false}
+      end
+    end)
+    |> case do
+      true -> true
+      false -> false
+      _ -> false
+    end
+  end)
+end)
+|> Enum.count()
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+height_map
+|> Enum.map(fn {{x, y}, h} ->
+  {x, y} |> IO.inspect()
+
+  [
+    {1, 0},
+    {-1, 0},
+    {0, 1},
+    {0, -1}
+  ]
+  |> Enum.map(fn {dx, dy} ->
+    Stream.iterate(0, &(&1 + 1))
+    |> Enum.reduce_while({{x, y}, h, 0}, fn _i, {{x0, y0}, h0, n} ->
+      c = {x0 + dx, y0 + dy}
+
+      case Map.get(height_map, c) do
+        nil ->
+          {:halt, n}
+
+        h1 when h1 < h0 ->
+          {:cont, {c, h0, n + 1}}
+
+        _ ->
+          {:halt, n + 1}
+      end
+    end)
+    |> case do
+      {_, _, n} -> n
+      n -> n
+    end
+  end)
+  |> Enum.reduce(&(&1 * &2))
+end)
+|> Enum.max()
+```
