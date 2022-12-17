@@ -1,0 +1,203 @@
+# Advent of Code 2022
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"},
+  {:kino, "~> 0.8.0"}
+])
+```
+
+## Day 9
+
+```elixir
+input =
+  "https://adventofcode.com/2022/day/9/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+R 4
+U 4
+L 3
+D 1
+R 4
+D 1
+L 5
+R 2
+"""
+
+sample2 = """
+R 5
+U 8
+L 8
+D 3
+R 17
+D 10
+L 25
+U 20
+"""
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+select = Kino.Input.select("data", input: "input", sample: "sample", sample2: "sample2")
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+motions =
+  Kino.Input.read(select)
+  |> case do
+    :input -> input
+    :sample -> sample
+    :sample2 -> sample2
+  end
+  |> String.split("\n", trim: true)
+  |> Enum.flat_map(fn line ->
+    line
+    |> String.split(" ")
+    |> then(fn [d, n] ->
+      List.duplicate(d, String.to_integer(n))
+    end)
+  end)
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 1
+
+```elixir
+state = %{head: {0, 0}, tail: {0, 0}, visited: MapSet.new([{0, 0}])}
+
+directions = %{
+  "R" => {1, 0},
+  "U" => {0, 1},
+  "L" => {-1, 0},
+  "D" => {0, -1}
+}
+
+motions
+|> Enum.reduce(state, fn d, %{head: {hx, hy}, tail: {tx, ty}} = acc ->
+  {dx, dy} = directions[d]
+
+  {hx1, hy1} = head1 = {hx + dx, hy + dy}
+
+  ax = abs(hx1 - tx)
+  ay = abs(hy1 - ty)
+
+  tail1 =
+    cond do
+      ty == hy1 && ax > 1 ->
+        {tx + dx, ty}
+
+      tx == hx1 && ay > 1 ->
+        {tx, ty + dy}
+
+      ax + ay > 2 ->
+        mx = if hx1 > tx, do: 1, else: -1
+        my = if hy1 > ty, do: 1, else: -1
+        {tx + mx, ty + my}
+
+      true ->
+        {tx, ty}
+    end
+
+  acc
+  |> Map.put(:head, head1)
+  |> Map.put(:tail, tail1)
+  |> Map.put(:visited, MapSet.put(acc.visited, tail1))
+
+  # |> tap(fn s ->
+  #   head1 |> IO.inspect(label: "head")
+  #   tail1 |> IO.inspect(label: "tail")
+  #   Enum.map(5..0, fn y ->
+  #     Enum.map(0..5, fn x ->
+  #       cond do
+  #         x == hx1 && y == hy1 ->
+  #           "H"
+  #         x == elem(tail1, 0) && y == elem(tail1, 1) ->
+  #           "T"
+  #         true ->
+  #           "."
+  #       end
+  #       |> IO.write()
+  #     end)
+  #     IO.puts("")
+  #   end)
+  #   IO.puts("")
+  # end)
+end)
+|> Map.get(:visited)
+|> MapSet.size()
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+n = 10
+rope = 1..n |> Enum.map(fn i -> {i, {0, 0}} end) |> Map.new()
+state = %{rope: rope, visited: MapSet.new([{0, 0}])}
+
+directions = %{
+  "R" => {1, 0},
+  "U" => {0, 1},
+  "L" => {-1, 0},
+  "D" => {0, -1}
+}
+
+motions
+|> Enum.reduce(state, fn d, %{rope: r} = acc ->
+  {dx, dy} = directions[d]
+
+  r = Map.update!(r, 1, fn {x, y} -> {x + dx, y + dy} end)
+
+  r =
+    2..n
+    |> Enum.reduce_while(r, fn i, r ->
+      {hx1, hy1} = r[i - 1]
+      {tx, ty} = r[i]
+
+      ax = abs(hx1 - tx)
+      ay = abs(hy1 - ty)
+
+      cond do
+        ty == hy1 && ax > 1 ->
+          mx = if hx1 > tx, do: 1, else: -1
+          {tx + mx, ty}
+
+        tx == hx1 && ay > 1 ->
+          my = if hy1 > ty, do: 1, else: -1
+          {tx, ty + my}
+
+        ax + ay > 2 ->
+          mx = if hx1 > tx, do: 1, else: -1
+          my = if hy1 > ty, do: 1, else: -1
+          {tx + mx, ty + my}
+
+        true ->
+          :no_change
+      end
+      |> case do
+        :no_change ->
+          {:halt, r}
+
+        updated ->
+          {:cont, Map.put(r, i, updated)}
+      end
+    end)
+
+  acc
+  |> Map.put(:rope, r)
+  |> Map.put(:visited, MapSet.put(acc.visited, r[n]))
+end)
+|> Map.get(:visited)
+|> MapSet.size()
+```
