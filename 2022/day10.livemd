@@ -1,0 +1,242 @@
+# Advent of Code 2022
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 10
+
+```elixir
+input =
+  "https://adventofcode.com/2022/day/10/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+  |> String.split("\n", trim: true)
+```
+
+```elixir
+sample =
+  """
+  addx 15
+  addx -11
+  addx 6
+  addx -3
+  addx 5
+  addx -1
+  addx -8
+  addx 13
+  addx 4
+  noop
+  addx -1
+  addx 5
+  addx -1
+  addx 5
+  addx -1
+  addx 5
+  addx -1
+  addx 5
+  addx -1
+  addx -35
+  addx 1
+  addx 24
+  addx -19
+  addx 1
+  addx 16
+  addx -11
+  noop
+  noop
+  addx 21
+  addx -15
+  noop
+  noop
+  addx -3
+  addx 9
+  addx 1
+  addx -3
+  addx 8
+  addx 1
+  addx 5
+  noop
+  noop
+  noop
+  noop
+  noop
+  addx -36
+  noop
+  addx 1
+  addx 7
+  noop
+  noop
+  noop
+  addx 2
+  addx 6
+  noop
+  noop
+  noop
+  noop
+  noop
+  addx 1
+  noop
+  noop
+  addx 7
+  addx 1
+  noop
+  addx -13
+  addx 13
+  addx 7
+  noop
+  addx 1
+  addx -33
+  noop
+  noop
+  noop
+  addx 2
+  noop
+  noop
+  noop
+  addx 8
+  noop
+  addx -1
+  addx 2
+  addx 1
+  noop
+  addx 17
+  addx -9
+  addx 1
+  addx 1
+  addx -3
+  addx 11
+  noop
+  noop
+  addx 1
+  noop
+  addx 1
+  noop
+  noop
+  addx -13
+  addx -19
+  addx 1
+  addx 3
+  addx 26
+  addx -30
+  addx 12
+  addx -1
+  addx 3
+  addx 1
+  noop
+  noop
+  noop
+  addx -9
+  addx 18
+  addx 1
+  addx 2
+  noop
+  noop
+  addx 9
+  noop
+  noop
+  noop
+  addx -1
+  addx 2
+  addx -37
+  addx 1
+  addx 3
+  noop
+  addx 15
+  addx -21
+  addx 22
+  addx -6
+  addx 1
+  noop
+  addx 2
+  addx 1
+  noop
+  addx -10
+  noop
+  noop
+  addx 20
+  addx 1
+  addx 2
+  addx 2
+  addx -6
+  addx -11
+  noop
+  noop
+  noop
+  """
+  |> String.split("\n", trim: true)
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 1
+
+```elixir
+input
+|> Enum.reduce({1, 1, []}, fn op, {cycle, x, signal_strength} ->
+  case op do
+    "noop" ->
+      ss =
+        if rem(cycle + 1 + 20, 40) == 0 do
+          [(cycle + 1) * x | signal_strength]
+        else
+          signal_strength
+        end
+
+      {cycle + 1, x, ss}
+
+    "addx " <> n ->
+      ss =
+        cond do
+          rem(cycle + 1 + 20, 40) == 0 ->
+            [(cycle + 1) * x | signal_strength]
+
+          rem(cycle + 2 + 20, 40) == 0 ->
+            [(cycle + 2) * (x + String.to_integer(n)) | signal_strength]
+
+          true ->
+            signal_strength
+        end
+
+      {cycle + 2, x + String.to_integer(n), ss}
+  end
+end)
+|> elem(2)
+|> Enum.sum()
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 2
+
+```elixir
+input
+|> Enum.flat_map(fn
+  "noop" ->
+    [:noop]
+
+  "addx " <> n ->
+    [:begin_add_x, {:add_x, String.to_integer(n)}]
+end)
+|> Enum.reduce({1, 1}, fn op, {cycle, x} ->
+  col = rem(cycle - 1, 40)
+  IO.write(if col in (x - 1)..(x + 1), do: "#", else: ".")
+
+  if rem(cycle, 40) == 0 do
+    IO.puts("")
+  end
+
+  x =
+    case op do
+      {:add_x, n} ->
+        x + n
+
+      _ ->
+        x
+    end
+
+  {cycle + 1, x}
+end)
+```
