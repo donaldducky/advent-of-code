@@ -230,13 +230,40 @@ end)
 
   x =
     case op do
-      {:add_x, n} ->
-        x + n
-
-      _ ->
-        x
+      {:add_x, n} -> x + n
+      _ -> x
     end
 
   {cycle + 1, x}
 end)
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Alternate Solutions
+
+Cleaner part 1.
+
+```elixir
+input
+|> Enum.flat_map(fn
+  "noop" ->
+    [:noop]
+
+  "addx " <> n ->
+    [:begin_add_x, {:add_x, String.to_integer(n)}]
+end)
+|> Enum.reduce({1, 1, []}, fn op, {cycle, x, ss} ->
+  ss = if rem(cycle + 20, 40) == 0, do: [cycle * x | ss], else: ss
+
+  x =
+    case op do
+      {:add_x, n} -> x + n
+      _ -> x
+    end
+
+  {cycle + 1, x, ss}
+end)
+|> elem(2)
+|> Enum.sum()
 ```

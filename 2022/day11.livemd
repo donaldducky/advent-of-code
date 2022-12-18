@@ -1,0 +1,211 @@
+# Advent of Code 2022
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 11
+
+```elixir
+input =
+  "https://adventofcode.com/2022/day/11/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+Monkey 0:
+  Starting items: 79, 98
+  Operation: new = old * 19
+  Test: divisible by 23
+    If true: throw to monkey 2
+    If false: throw to monkey 3
+
+Monkey 1:
+  Starting items: 54, 65, 75, 74
+  Operation: new = old + 6
+  Test: divisible by 19
+    If true: throw to monkey 2
+    If false: throw to monkey 0
+
+Monkey 2:
+  Starting items: 79, 60, 97
+  Operation: new = old * old
+  Test: divisible by 13
+    If true: throw to monkey 1
+    If false: throw to monkey 3
+
+Monkey 3:
+  Starting items: 74
+  Operation: new = old + 3
+  Test: divisible by 17
+    If true: throw to monkey 0
+    If false: throw to monkey 1
+"""
+```
+
+```elixir
+# input = sample
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+monkeys =
+  input
+  |> String.split("\n\n", trim: true)
+  |> Enum.map(fn monkey_lines ->
+    monkey_lines
+    |> String.split("\n", trim: true)
+    |> Enum.map(&String.trim/1)
+    |> Enum.reduce(%{inspect_count: 0}, fn line, acc ->
+      case line do
+        "Monkey" <> _ ->
+          n = Regex.run(~r/Monkey (\d+):/, line, capture: :all_but_first) |> hd()
+          Map.put(acc, :id, String.to_integer(n))
+
+        "Starting items: " <> rest ->
+          items =
+            rest
+            |> String.split(",", trim: true)
+            |> Enum.map(&String.trim/1)
+            |> Enum.map(&String.to_integer/1)
+
+          Map.put(acc, :items, items)
+
+        "Operation: new = " <> operation ->
+          operation =
+            operation
+            |> String.split(" ")
+            |> then(fn [a, op, b] ->
+              a = if a == "old", do: :old, else: String.to_integer(a)
+              b = if b == "old", do: :old, else: String.to_integer(b)
+
+              {a, op, b}
+            end)
+
+          Map.put(acc, :operation, operation)
+
+        "Test: divisible by " <> divisor ->
+          divisor = String.to_integer(divisor)
+          Map.put(acc, :test_divisor, divisor)
+
+        "If true: throw to monkey " <> n ->
+          to_monkey = String.to_integer(n)
+          Map.put(acc, true, to_monkey)
+
+        "If false: throw to monkey " <> n ->
+          to_monkey = String.to_integer(n)
+          Map.put(acc, false, to_monkey)
+
+        _ ->
+          raise "unknown line #{line}"
+      end
+    end)
+    |> then(fn monkey ->
+      {Map.get(monkey, :id), monkey}
+    end)
+  end)
+  |> Enum.into(%{})
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+n = Enum.count(monkeys)
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+1..20
+|> Enum.reduce(monkeys, fn _i, monkeys ->
+  0..(n - 1)
+  |> Enum.reduce(monkeys, fn i, monkeys ->
+    get_in(monkeys, [i, :items])
+    |> Enum.reduce(monkeys, fn item, monkeys ->
+      worry =
+        case get_in(monkeys, [i, :operation]) do
+          {a, "*", b} ->
+            a = if a == :old, do: item, else: a
+            b = if b == :old, do: item, else: b
+            a * b
+
+          {a, "+", b} ->
+            a = if a == :old, do: item, else: a
+            b = if b == :old, do: item, else: b
+            a + b
+        end
+        |> div(3)
+
+      divisible? = if rem(worry, get_in(monkeys, [i, :test_divisor])) == 0, do: true, else: false
+      to_monkey = get_in(monkeys, [i, divisible?])
+
+      IO.puts("#{i} (#{item}) -> #{to_monkey} (#{worry})")
+
+      update_in(monkeys, [i, :items], &tl(&1))
+      |> update_in([i, :inspect_count], &(&1 + 1))
+      |> update_in([to_monkey, :items], &(&1 ++ [worry]))
+    end)
+  end)
+end)
+|> Enum.map(fn {_, monkey} -> monkey.inspect_count end)
+|> Enum.sort(:desc)
+|> Enum.take(2)
+|> Enum.reduce(fn a, b -> a * b end)
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+# All the divisors are prime numbers.
+# We can divide the worry level by the product (ie. greatest common divisor).
+# If we don't divide, the worry level will become super huge!
+# The BEAM can handle it but it will take forever and run out of memory.
+product = Enum.reduce(monkeys, 1, fn {_, monkey}, p -> p * monkey.test_divisor end)
+
+1..10000
+|> Enum.reduce(monkeys, fn _i, monkeys ->
+  0..(n - 1)
+  |> Enum.reduce(monkeys, fn i, monkeys ->
+    get_in(monkeys, [i, :items])
+    |> Enum.reduce(monkeys, fn item, monkeys ->
+      worry =
+        case get_in(monkeys, [i, :operation]) do
+          {a, "*", b} ->
+            a = if a == :old, do: item, else: a
+            b = if b == :old, do: item, else: b
+            a * b
+
+          {a, "+", b} ->
+            a = if a == :old, do: item, else: a
+            b = if b == :old, do: item, else: b
+            a + b
+        end
+        |> rem(product)
+
+      divisible? = if rem(worry, get_in(monkeys, [i, :test_divisor])) == 0, do: true, else: false
+      to_monkey = get_in(monkeys, [i, divisible?])
+
+      update_in(monkeys, [i, :items], &tl(&1))
+      |> update_in([i, :inspect_count], &(&1 + 1))
+      |> update_in([to_monkey, :items], &(&1 ++ [worry]))
+    end)
+  end)
+end)
+|> Enum.map(fn {_, monkey} -> monkey.inspect_count end)
+|> Enum.sort(:desc)
+|> Enum.take(2)
+|> Enum.reduce(fn a, b -> a * b end)
+```
