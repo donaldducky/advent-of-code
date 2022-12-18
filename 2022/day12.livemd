@@ -1,0 +1,191 @@
+# Advent of Code 2022
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 12
+
+```elixir
+input =
+  "https://adventofcode.com/2022/day/12/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+Sabqponm
+abcryxxl
+accszExk
+acctuvwj
+abdefghi
+"""
+```
+
+```elixir
+# input = sample
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+state =
+  input
+  |> String.split("\n", trim: true)
+  |> Enum.with_index()
+  |> Enum.reduce(%{map: Map.new(), cost: Map.new()}, fn {line, y}, acc ->
+    line
+    |> String.split("", trim: true)
+    |> Enum.with_index()
+    |> Enum.reduce(acc, fn {letter, x}, acc ->
+      c = {x, y}
+
+      case letter do
+        "S" ->
+          acc
+          |> Map.put(:open, Map.put(%{}, c, 0))
+          |> put_in([:map, c], ?a)
+
+        "E" ->
+          acc
+          |> Map.put(:end, c)
+          |> put_in([:map, c], ?z)
+
+        _ ->
+          put_in(acc, [:map, c], String.to_charlist(letter) |> hd())
+      end
+    end)
+  end)
+```
+
+## Part 1
+
+```elixir
+Stream.iterate(0, &(&1 + 1))
+|> Enum.reduce_while(state, fn _, acc ->
+  case acc.open do
+    open when open == %{} ->
+      {:halt, acc}
+
+    open ->
+      {{x, y} = c, cost} = Enum.min_by(open, fn {_, cost} -> cost end)
+
+      if c == state.end do
+        acc
+        |> put_in([:cost, c], cost)
+        |> then(&{:halt, &1})
+      else
+        # visit
+        acc =
+          acc
+          |> put_in([:cost, c], cost)
+          |> Map.put(:open, Map.delete(open, c))
+
+        h = Map.get(acc.map, c)
+
+        # expand
+        [
+          {1, 0},
+          {-1, 0},
+          {0, 1},
+          {0, -1}
+        ]
+        |> Enum.map(fn {dx, dy} -> {x + dx, y + dy} end)
+        |> Enum.filter(fn c2 ->
+          case Map.get(acc.map, c2) do
+            nil -> false
+            h2 -> h2 - h <= 1
+          end
+        end)
+        # if cost is less, let's explore
+        |> Enum.filter(fn c ->
+          case Map.get(acc.cost, c) do
+            nil -> true
+            cost0 -> cost + 1 < cost0
+          end
+        end)
+        |> Enum.reduce(acc, fn c2, acc ->
+          Map.update!(acc, :open, &Map.put(&1, c2, cost + 1))
+        end)
+        |> then(&{:cont, &1})
+      end
+  end
+end)
+|> then(fn state ->
+  Map.get(state.cost, state.end)
+end)
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 2
+
+```elixir
+state.map
+|> Enum.filter(fn {_, v} -> v == ?a end)
+|> Enum.map(fn {c, _} -> c end)
+|> Enum.map(fn c ->
+  open = Map.new() |> Map.put(c, 0)
+  state = Map.put(state, :open, open)
+
+  Stream.iterate(0, &(&1 + 1))
+  |> Enum.reduce_while(state, fn _, acc ->
+    case acc.open do
+      open when open == %{} ->
+        {:halt, acc}
+
+      open ->
+        {{x, y} = c, cost} = Enum.min_by(open, fn {_, cost} -> cost end)
+
+        if c == state.end do
+          acc
+          |> put_in([:cost, c], cost)
+          |> then(&{:halt, &1})
+        else
+          # visit
+          acc =
+            acc
+            |> put_in([:cost, c], cost)
+            |> Map.put(:open, Map.delete(open, c))
+
+          h = Map.get(acc.map, c)
+
+          # expand
+          [
+            {1, 0},
+            {-1, 0},
+            {0, 1},
+            {0, -1}
+          ]
+          |> Enum.map(fn {dx, dy} -> {x + dx, y + dy} end)
+          |> Enum.filter(fn c2 ->
+            case Map.get(acc.map, c2) do
+              nil -> false
+              h2 -> h2 - h <= 1
+            end
+          end)
+          # if cost is less, let's explore
+          |> Enum.filter(fn c ->
+            case Map.get(acc.cost, c) do
+              nil -> true
+              cost0 -> cost + 1 < cost0
+            end
+          end)
+          |> Enum.reduce(acc, fn c2, acc ->
+            Map.update!(acc, :open, &Map.put(&1, c2, cost + 1))
+          end)
+          |> then(&{:cont, &1})
+        end
+    end
+  end)
+  |> then(fn state ->
+    Map.get(state.cost, state.end)
+  end)
+end)
+|> Enum.min()
+```
+
+Part 2 is pretty slow, took `81.6s`. Maybe need some kind of priority queue.
