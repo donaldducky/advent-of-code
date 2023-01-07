@@ -1,0 +1,130 @@
+# Advent of Code 2022
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 13
+
+```elixir
+input =
+  "https://adventofcode.com/2022/day/13/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+[1,1,3,1,1]
+[1,1,5,1,1]
+
+[[1],[2,3,4]]
+[[1],4]
+
+[9]
+[[8,7,6]]
+
+[[4,4],4,4]
+[[4,4],4,4,4]
+
+[7,7,7,7]
+[7,7,7]
+
+[]
+[3]
+
+[[[]]]
+[[]]
+
+[1,[2,[3,[4,[5,6,7]]]],8,9]
+[1,[2,[3,[4,[5,6,0]]]],8,9]
+"""
+```
+
+```elixir
+# input = sample
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+pairs =
+  input
+  |> String.split("\n\n", trim: true)
+  |> Enum.map(
+    &(String.split(&1, "\n", trim: true)
+      |> Enum.map(fn s -> Code.eval_string(s) |> elem(0) end))
+  )
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+defmodule A do
+  def ordered?(l, r) do
+    case compare(l, r) do
+      :lt -> true
+      :gt -> false
+    end
+  end
+
+  def compare([], []), do: :eq
+  def compare([], _), do: :lt
+  def compare(_, []), do: :gt
+
+  def compare(a, b) when is_integer(a) and is_integer(b) and a < b, do: :lt
+  def compare(a, b) when is_integer(a) and is_integer(b) and a > b, do: :gt
+  def compare(a, b) when is_integer(a) and is_integer(b), do: :eq
+
+  def compare(a, b) when is_integer(a) and is_list(b), do: compare([a], b)
+  def compare(a, b) when is_list(a) and is_integer(b), do: compare(a, [b])
+
+  def compare([a | ta], [b | tb]) do
+    case compare(a, b) do
+      :eq ->
+        compare(ta, tb)
+
+      result ->
+        result
+    end
+  end
+
+  # fail everything else by default
+  def compare(_, _), do: :gt
+end
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+pairs
+|> Enum.with_index(1)
+|> Enum.filter(fn {[l, r], _i} ->
+  A.ordered?(l, r)
+end)
+|> Enum.map(fn {_, i} -> i end)
+|> Enum.sum()
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+pairs
+|> Enum.flat_map(&Function.identity/1)
+|> Enum.concat([[[2]], [[6]]])
+|> Enum.sort(A)
+|> Enum.with_index(1)
+|> Enum.filter(fn {n, _i} -> n in [[[2]], [[6]]] end)
+|> Enum.map(fn {_n, i} -> i end)
+|> Enum.reduce(&(&1 * &2))
+```
