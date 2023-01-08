@@ -1,0 +1,173 @@
+# Advent of Code 2022
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 14
+
+```elixir
+input =
+  "https://adventofcode.com/2022/day/14/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+498,4 -> 498,6 -> 496,6
+503,4 -> 502,4 -> 502,9 -> 494,9
+"""
+```
+
+```elixir
+defmodule A do
+  def parse(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(fn line ->
+      String.split(line, " -> ")
+      |> Enum.map(fn point ->
+        point
+        |> String.split(",")
+        |> Enum.map(&String.to_integer/1)
+        |> List.to_tuple()
+      end)
+    end)
+  end
+
+  def lines_to_rocks(lines) do
+    lines
+    |> Enum.reduce(MapSet.new(), fn points, acc ->
+      [head | tail] = points
+
+      tail
+      |> Enum.reduce({head, acc}, fn {x, y} = p, {{px, py}, all} ->
+        # coordinate system is in this direction
+        # 0 1 2 3 ...
+        # 1
+        # 2
+        # 3
+        # ...
+        dx = px - x
+        dy = py - y
+
+        all =
+          case {dx, dy} do
+            {dx, 0} ->
+              for x2 <- px..(px - dx), into: all, do: {x2, y}
+
+            {0, dy} ->
+              for y2 <- py..(py - dy), into: all, do: {x, y2}
+          end
+
+        {p, all}
+      end)
+      |> elem(1)
+    end)
+
+    # |> MapSet.to_list()
+    # |> Enum.filter(& elem(&1, 1) != 9)
+    # |> Enum.filter(& elem(&1, 0) != 502)
+  end
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+rocks =
+  input
+  |> A.parse()
+  |> A.lines_to_rocks()
+```
+
+```elixir
+{_, max_y} =
+  rocks
+  |> MapSet.to_list()
+  |> Enum.max_by(&elem(&1, 1))
+
+{{min_x, _}, {max_x, _}} =
+  rocks
+  |> MapSet.to_list()
+  |> Enum.min_max_by(&elem(&1, 0))
+
+{min_x, max_x, max_y}
+```
+
+```elixir
+Stream.iterate(0, &(&1 + 1))
+# |> Enum.take(100)
+|> Enum.reduce_while(rocks, fn i, filled ->
+  Stream.iterate(1, &(&1 + 1))
+  |> Enum.reduce_while({500, 0}, fn _j, {x, y} ->
+    cond do
+      x < min_x || x > max_x || y > max_y -> {:halt, :forever}
+      !MapSet.member?(filled, {x, y + 1}) -> {:cont, {x, y + 1}}
+      !MapSet.member?(filled, {x - 1, y + 1}) -> {:cont, {x - 1, y + 1}}
+      !MapSet.member?(filled, {x + 1, y + 1}) -> {:cont, {x + 1, y + 1}}
+      true -> {:halt, {x, y}}
+    end
+  end)
+  |> then(fn
+    :forever -> {:halt, i}
+    {_x, _y} = p -> {:cont, MapSet.put(filled, p)}
+  end)
+end)
+```
+
+## Part 2
+
+```elixir
+rocks =
+  input
+  |> A.parse()
+  |> A.lines_to_rocks()
+```
+
+```elixir
+{_, max_y} =
+  rocks
+  |> MapSet.to_list()
+  |> Enum.max_by(&elem(&1, 1))
+
+{{min_x, _}, {max_x, _}} =
+  rocks
+  |> MapSet.to_list()
+  |> Enum.min_max_by(&elem(&1, 0))
+
+{min_x, max_x, max_y}
+```
+
+```elixir
+# max height max_y + 2 = 11
+
+floor_y = max_y + 2
+
+rocks = for x <- (min_x - floor_y)..(max_x + floor_y), into: rocks, do: {x, floor_y}
+```
+
+```elixir
+Stream.iterate(1, &(&1 + 1))
+|> Enum.reduce_while(rocks, fn i, filled ->
+  Stream.iterate(1, &(&1 + 1))
+  |> Enum.reduce_while({500, 0}, fn _j, {x, y} ->
+    cond do
+      !MapSet.member?(filled, {x, y + 1}) -> {:cont, {x, y + 1}}
+      !MapSet.member?(filled, {x - 1, y + 1}) -> {:cont, {x - 1, y + 1}}
+      !MapSet.member?(filled, {x + 1, y + 1}) -> {:cont, {x + 1, y + 1}}
+      y == 0 -> {:halt, :done}
+      true -> {:halt, {x, y}}
+    end
+  end)
+  |> then(fn
+    :done -> {:halt, i}
+    {_x, _y} = p -> {:cont, MapSet.put(filled, p)}
+  end)
+end)
+```
