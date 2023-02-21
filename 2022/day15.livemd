@@ -1,0 +1,147 @@
+# Advent of Code 2022
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"},
+  {:kino, "~> 0.8.1"}
+])
+```
+
+## Day 15
+
+```elixir
+input =
+  "https://adventofcode.com/2022/day/15/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+Sensor at x=2, y=18: closest beacon is at x=-2, y=15
+Sensor at x=9, y=16: closest beacon is at x=10, y=16
+Sensor at x=13, y=2: closest beacon is at x=15, y=3
+Sensor at x=12, y=14: closest beacon is at x=10, y=16
+Sensor at x=10, y=20: closest beacon is at x=10, y=16
+Sensor at x=14, y=17: closest beacon is at x=10, y=16
+Sensor at x=8, y=7: closest beacon is at x=2, y=10
+Sensor at x=2, y=0: closest beacon is at x=2, y=10
+Sensor at x=0, y=11: closest beacon is at x=2, y=10
+Sensor at x=20, y=14: closest beacon is at x=25, y=17
+Sensor at x=17, y=20: closest beacon is at x=21, y=22
+Sensor at x=16, y=7: closest beacon is at x=15, y=3
+Sensor at x=14, y=3: closest beacon is at x=15, y=3
+Sensor at x=20, y=1: closest beacon is at x=15, y=3
+"""
+```
+
+```elixir
+defmodule A do
+  def parse(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(fn s ->
+      [sx, sy, bx, by] =
+        Regex.run(
+          ~r/Sensor at x=(-?\d+), y=(-?\d+): closest beacon is at x=(-?\d+), y=(-?\d+)/,
+          s,
+          capture: :all_but_first
+        )
+        |> Enum.map(&String.to_integer/1)
+
+      {{sx, sy}, {bx, by}}
+    end)
+  end
+
+  def part1({input, target_y}) do
+    parse(input)
+    |> Enum.reduce(
+      %{
+        beacons_at_target: MapSet.new(),
+        sensor_coverage_x: MapSet.new()
+      },
+      fn {{sx, sy}, {bx, by}}, acc ->
+        acc =
+          if by == target_y do
+            update_in(acc.beacons_at_target, &MapSet.put(&1, bx))
+          else
+            acc
+          end
+
+        sensor_range = abs(bx - sx) + abs(by - sy)
+
+        if target_y in (sy - sensor_range)..(sy + sensor_range) do
+          dy =
+            cond do
+              sy < target_y ->
+                target_y - sy
+
+              sy > target_y ->
+                sy - target_y
+
+              sy == target_y ->
+                0
+
+              true ->
+                raise("should not get here")
+            end
+
+          x_w = sensor_range - dy
+
+          x_range = (sx - x_w)..(sx + x_w)
+
+          update_in(acc.sensor_coverage_x, &MapSet.union(&1, x_range |> Enum.into(MapSet.new())))
+        else
+          acc
+        end
+      end
+    )
+  end
+
+  def part2({input, max}) do
+    parse(input)
+    |> then(fn input -> {input, max} end)
+  end
+end
+```
+
+## Part 1
+
+```elixir
+inputs = [
+  puzzle: {input, 2_000_000},
+  sample: {sample, 10}
+]
+
+select = Kino.Input.select("input", puzzle: "Puzzle", sample: "Sample")
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+Keyword.fetch!(inputs, Kino.Input.read(select))
+|> A.part1()
+|> IO.inspect()
+|> then(&(MapSet.difference(&1.sensor_coverage_x, &1.beacons_at_target) |> Enum.count()))
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 2
+
+```elixir
+inputs = [
+  puzzle: {input, 4_000_000},
+  sample: {sample, 20}
+]
+
+select = Kino.Input.select("input", puzzle: "Puzzle", sample: "Sample")
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+Keyword.fetch!(inputs, Kino.Input.read(select))
+|> A.part2()
+|> IO.inspect()
+```
