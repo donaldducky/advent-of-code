@@ -98,9 +98,67 @@ defmodule A do
     )
   end
 
-  def part2({input, max}) do
+  def part2({input, max_x}) do
     parse(input)
-    |> then(fn input -> {input, max} end)
+    |> then(fn pairs -> {pairs, max_x} end)
+    |> find_beacon()
+    |> calculate_tuning_frequency()
+  end
+
+  defp find_beacon({pairs, max_x}) do
+    sensors =
+      pairs
+      |> Enum.map(fn {{sx, sy}, {bx, by}} ->
+        r = abs(bx - sx) + abs(by - sy)
+
+        {sx, sy, r}
+      end)
+
+    0..max_x
+    |> Enum.map(fn y ->
+      ranges =
+        sensors
+        |> Enum.reduce([], fn {sx, sy, r}, ranges ->
+          dy = abs(y - sy)
+
+          if dy > r do
+            ranges
+          else
+            d = r - dy
+            # clamp between 0 and max_x
+            x0 = max(0, sx - d)
+            x1 = min(sx + d, max_x)
+
+            [x0..x1 | ranges]
+          end
+        end)
+        |> Enum.sort_by(& &1.first)
+        |> Enum.reduce([], fn range, acc ->
+          case acc do
+            [] ->
+              [range]
+
+            [cur | rest] = acc ->
+              if cur.last + 1 < range.first do
+                [range | acc]
+              else
+                x0 = cur.first
+                x1 = max(cur.last, range.last)
+                [x0..x1 | rest]
+              end
+          end
+        end)
+
+      {y, ranges}
+    end)
+    |> Enum.find(fn {_y, rs} -> Enum.count(rs) == 2 end)
+    |> then(fn {y, [r1, _r0]} ->
+      {r1.first - 1, y}
+    end)
+  end
+
+  defp calculate_tuning_frequency({x, y}) do
+    x * 4_000_000 + y
   end
 end
 ```
@@ -141,7 +199,9 @@ select = Kino.Input.select("input", puzzle: "Puzzle", sample: "Sample")
 <!-- livebook:{"reevaluate_automatically":true} -->
 
 ```elixir
-Keyword.fetch!(inputs, Kino.Input.read(select))
+inputs
+|> Keyword.fetch!(Kino.Input.read(select))
 |> A.part2()
-|> IO.inspect()
 ```
+
+<!-- livebook:{"offset":4599,"stamp":{"token":"QTEyOEdDTQ.qCKdLSi1ABqAT4O4GBB-RwHMvcwW-QQ-MsqFo4GfP46d4ZvsLLR6oWzBJ4Q.4mIPNuCCJYHXxHIq.Ktb4mqtb4W0DltEDofc3Uu6NtYYWGIRJdN0lshYjdQgwuOdRKvJEQ7Nr4InEYg.YCYrYmsDiVhTByq-SqISSA","version":1}} -->
