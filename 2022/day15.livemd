@@ -115,7 +115,7 @@ defmodule A do
       end)
 
     0..max_x
-    |> Enum.map(fn y ->
+    |> Enum.reduce_while(nil, fn y, _acc ->
       ranges =
         sensors
         |> Enum.reduce([], fn {sx, sy, r}, ranges ->
@@ -149,11 +149,13 @@ defmodule A do
           end
         end)
 
-      {y, ranges}
-    end)
-    |> Enum.find(fn {_y, rs} -> Enum.count(rs) == 2 end)
-    |> then(fn {y, [r1, _r0]} ->
-      {r1.first - 1, y}
+      case ranges do
+        [r1, _] ->
+          {:halt, {r1.first - 1, y}}
+
+        _ ->
+          {:cont, nil}
+      end
     end)
   end
 
@@ -204,4 +206,4 @@ inputs
 |> A.part2()
 ```
 
-<!-- livebook:{"offset":4599,"stamp":{"token":"QTEyOEdDTQ.qCKdLSi1ABqAT4O4GBB-RwHMvcwW-QQ-MsqFo4GfP46d4ZvsLLR6oWzBJ4Q.4mIPNuCCJYHXxHIq.Ktb4mqtb4W0DltEDofc3Uu6NtYYWGIRJdN0lshYjdQgwuOdRKvJEQ7Nr4InEYg.YCYrYmsDiVhTByq-SqISSA","version":1}} -->
+<!-- livebook:{"offset":4602,"stamp":{"token":"QTEyOEdDTQ.oMKlrzedk24eKehccmH1dNdTCmfc6fBCp9nNEy8iKk11146g25xlUNvMuhg.KZ_X8LhlAT4A9_Cq.Jmiaa8RgoE0v8tzJrywHF8Z46qN4ZW7vpda0nCEaHFxOtcC6bXYOtlG87YaVYQ.-gq9U3aTZSDi6uH5uWVMJA","version":1}} -->
