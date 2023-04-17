@@ -206,4 +206,182 @@ inputs
 |> A.part2()
 ```
 
-<!-- livebook:{"offset":4602,"stamp":{"token":"QTEyOEdDTQ.oMKlrzedk24eKehccmH1dNdTCmfc6fBCp9nNEy8iKk11146g25xlUNvMuhg.KZ_X8LhlAT4A9_Cq.Jmiaa8RgoE0v8tzJrywHF8Z46qN4ZW7vpda0nCEaHFxOtcC6bXYOtlG87YaVYQ.-gq9U3aTZSDi6uH5uWVMJA","version":1}} -->
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 2 - using line segments
+
+https://old.reddit.com/r/adventofcode/comments/zmcn64/2022_day_15_solutions/j0b90nr/?context=3
+
+```elixir
+data =
+  input
+  |> String.split("\n", trim: true)
+  |> Enum.map(fn line ->
+    Regex.scan(~r/-?\d+/, line, capture: :first)
+    |> List.flatten()
+    |> Enum.map(fn s -> String.to_integer(s) end)
+  end)
+
+# manhattan distance
+m_dist = fn {x1, y1}, {x2, y2} ->
+  abs(x2 - x1) + abs(y2 - y1)
+end
+
+sensors =
+  data
+  |> Enum.map(fn [sx, sy, bx, by] ->
+    # manhattan distance
+    r = m_dist.({sx, sy}, {bx, by})
+    {{sx, sy}, r}
+  end)
+  |> Enum.into(%{})
+
+{a_coefficients, b_coefficients} =
+  sensors
+  |> Enum.reduce({MapSet.new(), MapSet.new()}, fn {{x, y}, r}, {a_coefficients, b_coefficients} ->
+    # gradient 1  /
+    a_coefficients =
+      a_coefficients
+      |> MapSet.put(y - x + r + 1)
+      |> MapSet.put(y - x - r - 1)
+
+    # gradient -1 \
+    b_coefficients =
+      b_coefficients
+      |> MapSet.put(x + y + r + 1)
+      |> MapSet.put(x + y - r - 1)
+
+    {a_coefficients, b_coefficients}
+  end)
+
+bound = 4_000_000
+
+for a <- a_coefficients,
+    b <- b_coefficients,
+    x = div(b - a, 2),
+    y = div(a + b, 2),
+    Enum.all?([x, y], &(0 < &1 && &1 < bound)) do
+  {x, y}
+end
+|> Enum.find(fn p ->
+  # find the intersection point where it's out of range of all the sensors
+  sensors
+  |> Enum.all?(fn {s, r} ->
+    m_dist.(s, p) > r
+  end)
+end)
+|> then(fn {x, y} ->
+  4_000_000 * x + y
+end)
+```
+
+<!-- livebook:{"branch_parent_index":0} -->
+
+## Part 2 - using some matrices
+
+https://elixirforum.com/t/advent-of-code-2022-day-15/52552/8
+
+```elixir
+defmodule Aetherus do
+  # matrix for turning left 45 degrees 
+  # and stretch by the factor sqrt(2)
+  @m {
+    {1, -1},
+    {1, 1}
+  }
+
+  # inverse of @m
+  @inv_m {
+    {0.5, 0.5},
+    {-0.5, 0.5}
+  }
+
+  # `sensors` is a list of {xc, yc, r}
+  # where `xc` and `yc` is the coordinate of the center of a sensor,
+  # and `r` is its manhattan radius.
+  def part2_v2(sensors) do
+    sensors =
+      sensors
+      |> Enum.map(fn {xc, yc, r} ->
+        {
+          # left corner --> bottom-left corner
+          mul(@m, {xc - r, yc}),
+          # right corner --> top-right corner
+          mul(@m, {xc + r, yc})
+        }
+      end)
+
+    x_pairs =
+      sensors
+      |> Enum.flat_map(fn {{x1, _}, {x2, _}} ->
+        [x1, x2]
+      end)
+      |> Enum.uniq()
+      |> Enum.sort()
+      |> Enum.chunk_every(2, 1, :discard)
+      |> Enum.filter(fn [x1, x2] -> x2 - x1 == 2 end)
+
+    y_pairs =
+      sensors
+      |> Enum.flat_map(fn {{_, y1}, {_, y2}} ->
+        [y1, y2]
+      end)
+      |> Enum.uniq()
+      |> Enum.sort()
+      |> Enum.chunk_every(2, 1, :discard)
+      |> Enum.filter(fn [y1, y2] -> y2 - y1 == 2 end)
+
+    for [x1, x2] <- x_pairs,
+        [y1, y2] <- y_pairs,
+        x = div(x1 + x2, 2),
+        y = div(y1 + y2, 2),
+        p = {x, y},
+        !Enum.any?(sensors, &cover?(&1, p)),
+        {x, y} = mul(@inv_m, p),
+        do: x * 4_000_000 + y
+  end
+
+  defp cover?({{x1, y1}, {x2, y2}}, {x, y}) do
+    x in x1..x2 and y in y1..y2
+  end
+
+  defp mul(
+         {
+           {a, b},
+           {c, d}
+         },
+         {x, y}
+       ) do
+    {
+      trunc(a * x + b * y),
+      trunc(c * x + d * y)
+    }
+  end
+end
+
+data =
+  input
+  |> String.split("\n", trim: true)
+  |> Enum.map(fn line ->
+    Regex.scan(~r/-?\d+/, line, capture: :first)
+    |> List.flatten()
+    |> Enum.map(fn s -> String.to_integer(s) end)
+  end)
+
+# manhattan distance
+m_dist = fn {x1, y1}, {x2, y2} ->
+  abs(x2 - x1) + abs(y2 - y1)
+end
+
+sensors =
+  data
+  |> Enum.map(fn [sx, sy, bx, by] ->
+    # manhattan distance
+    r = m_dist.({sx, sy}, {bx, by})
+    {sx, sy, r}
+  end)
+
+Aetherus.part2_v2(sensors)
+```
+
+<!-- livebook:{"offset":8339,"stamp":{"token":"QTEyOEdDTQ.iDQiUuRDorQsZI0UkyrQ1CH-jBqLb7dCxjir6BVGqa0yECRytVBKFskBEOg.GyQ9pVF2nsvgQSFs.xLlZ5xnj1z00ghwdZXoLixt7AlQLpL1p1VgFmLJP_dOM1YcI83RJK68C4rHi0A.THJY_3De1HM2T36EuAF2SA","version":1}} -->
