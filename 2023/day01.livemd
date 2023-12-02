@@ -1,0 +1,47 @@
+# Advent of Code 2022
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 1
+
+```elixir
+input =
+  "https://adventofcode.com/2022/day/1/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+"""
+```
+
+```elixir
+defmodule A do
+  def parse(input) do
+    input
+    |> String.split("
+", trim: true)
+  end
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+## Part 2
+
+```elixir
+input
+```
