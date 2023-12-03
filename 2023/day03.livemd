@@ -1,0 +1,159 @@
+# Advent of Code 2023
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 3
+
+```elixir
+input =
+  "https://adventofcode.com/2023/day/3/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+467..114..
+...*......
+..35..633.
+......#...
+617*......
+.....+.58.
+..592.....
+......755.
+...$.*....
+.664.598..
+"""
+```
+
+```elixir
+defmodule A do
+  def parse(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.with_index()
+    |> Enum.map(fn {line, i} ->
+      nums = Regex.scan(~r/(\d+)/, line, return: :index) |> Enum.map(&hd/1)
+
+      num_strings =
+        Regex.scan(~r/(\d+)/, line, capture: :all_but_first)
+        |> Enum.map(&hd/1)
+        |> Enum.map(&String.to_integer/1)
+
+      symbols = Regex.scan(~r/([^\.\d])/, line, return: :index) |> Enum.map(&hd/1)
+      symbol_strings = Regex.scan(~r/([^\.\d])/, line, capture: :all_but_first) |> Enum.map(&hd/1)
+
+      {i,
+       %{
+         numbers: Enum.zip(num_strings, nums),
+         symbols: Enum.zip(symbol_strings, symbols)
+       }}
+    end)
+    |> Enum.into(%{})
+  end
+
+  def sum_valid(data) do
+    # data |> IO.inspect()
+
+    Stream.iterate(0, &(&1 + 1))
+    |> Enum.reduce_while(0, fn i, acc ->
+      if Map.has_key?(data, i) do
+        prev_row = Map.get(data, i - 1, %{numbers: [], symbols: []})
+        current_row = Map.fetch!(data, i)
+        next_row = Map.get(data, i + 1, %{numbers: [], symbols: []})
+
+        symbols =
+          Enum.concat([prev_row.symbols, current_row.symbols, next_row.symbols])
+          |> Enum.map(fn {_symbol, {start_index, 1}} -> start_index end)
+
+        # IO.inspect([current_row.numbers, symbols])
+
+        numbers =
+          current_row.numbers
+          |> Enum.filter(fn {_n, {start_index, len}} ->
+            symbols
+            |> Enum.any?(fn symbol_i ->
+              # IO.inspect({symbol_i, start_index - 1, start_index + len})
+              symbol_i >= start_index - 1 && symbol_i <= start_index + len
+            end)
+          end)
+          |> Enum.map(fn {n, _} -> n end)
+
+        {:cont, Enum.sum(numbers) + acc}
+      else
+        {:halt, acc}
+      end
+    end)
+  end
+
+  def sum_gear_ratios(data) do
+    Stream.iterate(0, &(&1 + 1))
+    |> Enum.reduce_while(0, fn i, acc ->
+      if Map.has_key?(data, i) do
+        prev_row = Map.get(data, i - 1, %{numbers: [], symbols: []})
+        current_row = Map.fetch!(data, i)
+        next_row = Map.get(data, i + 1, %{numbers: [], symbols: []})
+
+        gear_ratios =
+          current_row.symbols
+          |> Enum.filter(fn {symbol, _} -> symbol == "*" end)
+          |> Enum.map(fn {_, {symbol_i, 1}} ->
+            adjacent_numbers =
+              Enum.concat([prev_row.numbers, current_row.numbers, next_row.numbers])
+              |> Enum.filter(fn {_n, {start_index, len}} ->
+                symbol_i >= start_index - 1 && symbol_i <= start_index + len
+              end)
+
+            if Enum.count(adjacent_numbers) > 1 do
+              adjacent_numbers
+              |> Enum.map(fn {n, _} -> n end)
+              |> Enum.product()
+            else
+              0
+            end
+          end)
+
+        {:cont, Enum.sum(gear_ratios) + acc}
+      else
+        {:halt, acc}
+      end
+    end)
+  end
+
+  def part1(input) do
+    input
+    |> parse()
+    |> sum_valid()
+  end
+
+  def part2(input) do
+    input
+    |> parse()
+    |> sum_gear_ratios()
+  end
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+# sample
+input
+|> A.part1()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+# sample
+input
+|> A.part2()
+```
