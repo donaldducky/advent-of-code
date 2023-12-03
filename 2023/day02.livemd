@@ -1,4 +1,4 @@
-# Advent of Code 2022
+# Advent of Code 2023
 
 ```elixir
 Mix.install([
@@ -10,13 +10,18 @@ Mix.install([
 
 ```elixir
 input =
-  "https://adventofcode.com/2022/day/2/input"
+  "https://adventofcode.com/2023/day/2/input"
   |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
   |> Map.get(:body)
 ```
 
 ```elixir
 sample = """
+Game 1: 3 blue, 4 red; 1 red, 2 green, 6 blue; 2 green
+Game 2: 1 blue, 2 green; 3 green, 4 blue, 1 red; 1 green, 1 blue
+Game 3: 8 green, 6 blue, 20 red; 5 blue, 4 red, 13 green; 5 green, 1 red
+Game 4: 1 green, 3 red, 6 blue; 3 green, 6 red; 3 green, 15 blue, 14 red
+Game 5: 6 red, 1 blue, 3 green; 2 blue, 1 red, 2 green
 """
 ```
 
@@ -24,8 +29,83 @@ sample = """
 defmodule A do
   def parse(input) do
     input
-    |> String.split("
-", trim: true)
+    |> String.split("\n", trim: true)
+    |> Enum.map(fn line ->
+      [_, id, rest] = Regex.run(~r/Game (?<id>\d+): (?<rest>.*)/, line)
+
+      games =
+        rest
+        |> String.split("; ", trim: true)
+        |> Enum.map(fn game ->
+          game
+          |> String.split(", ")
+          |> Enum.map(fn round -> String.split(round, " ") end)
+          |> Enum.map(fn [n, color] -> {color, n |> String.to_integer()} end)
+          |> Enum.into(%{})
+        end)
+
+      {id |> String.to_integer(), games}
+    end)
+  end
+
+  defp filter_possible(games, criteria) do
+    games
+    |> Enum.filter(fn {_id, rounds} ->
+      rounds
+      |> Enum.all?(fn round ->
+        criteria
+        |> Enum.all?(fn {color, max_n} ->
+          Map.get(round, color, 0) <= max_n
+        end)
+      end)
+    end)
+  end
+
+  defp calculate_mins(games, mins) do
+    games
+    |> Enum.map(fn {id, rounds} ->
+      mins =
+        rounds
+        |> Enum.reduce(mins, fn round, acc ->
+          acc
+          |> Enum.map(fn {color, n} ->
+            round_n = Map.get(round, color, 0)
+            {color, max(n, round_n)}
+          end)
+        end)
+
+      {id, mins}
+    end)
+  end
+
+  defp sum_ids(games) do
+    games
+    |> Enum.map(fn {id, _} -> id end)
+    |> Enum.sum()
+  end
+
+  defp calculate_powers(game_mins) do
+    game_mins
+    |> Enum.map(fn {_id, mins} ->
+      mins
+      |> Enum.map(fn {_color, n} -> n end)
+      |> Enum.product()
+    end)
+  end
+
+  def part1(input) do
+    input
+    |> parse()
+    |> filter_possible([{"red", 12}, {"green", 13}, {"blue", 14}])
+    |> sum_ids()
+  end
+
+  def part2(input) do
+    input
+    |> parse()
+    |> calculate_mins([{"red", 0}, {"green", 0}, {"blue", 0}])
+    |> calculate_powers()
+    |> Enum.sum()
   end
 end
 ```
@@ -36,12 +116,14 @@ end
 
 ```elixir
 input
+|> A.part1()
 ```
-
-<!-- livebook:{"reevaluate_automatically":true} -->
 
 ## Part 2
 
+<!-- livebook:{"reevaluate_automatically":true} -->
+
 ```elixir
 input
+|> A.part2()
 ```
