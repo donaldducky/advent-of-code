@@ -1,0 +1,108 @@
+# Advent of Code 2023
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 4
+
+```elixir
+input =
+  "https://adventofcode.com/2023/day/4/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+Card 1: 41 48 83 86 17 | 83 86  6 31 17  9 48 53
+Card 2: 13 32 20 16 61 | 61 30 68 82 17 32 24 19
+Card 3:  1 21 53 59 44 | 69 82 63 72 16 21 14  1
+Card 4: 41 92 73 84 69 | 59 84 76 51 58  5 54 83
+Card 5: 87 83 26 28 32 | 88 30 70 12 93 22 82 36
+Card 6: 31 18 13 56 72 | 74 77 10 23 35 67 36 11
+"""
+```
+
+```elixir
+defmodule A do
+  def parse(input) do
+    input
+    |> String.split("\n", trim: true)
+  end
+
+  def part1(input) do
+    input
+    |> parse()
+    |> Enum.map(fn line ->
+      line
+      |> String.split(": ")
+      |> Enum.at(1)
+      |> String.split(" | ", trim: true)
+      |> Enum.map(&(String.split(&1, " ", trim: true) |> MapSet.new()))
+      |> then(fn [winning_numbers, card_numbers] ->
+        MapSet.intersection(card_numbers, winning_numbers)
+        |> MapSet.size()
+        |> then(fn
+          0 -> 0
+          n -> 2 ** (n - 1)
+        end)
+      end)
+    end)
+    |> Enum.sum()
+  end
+
+  def part2(input) do
+    input
+    |> parse()
+    |> Enum.map(fn line ->
+      line
+      |> String.split(": ")
+      |> Enum.at(1)
+      |> String.split(" | ", trim: true)
+      |> Enum.map(&(String.split(&1, " ", trim: true) |> MapSet.new()))
+      |> then(fn [winning_numbers, card_numbers] ->
+        MapSet.intersection(card_numbers, winning_numbers)
+        |> MapSet.size()
+      end)
+    end)
+    |> Enum.with_index(1)
+    |> Enum.reduce(%{}, fn {n, i}, counts ->
+      m = Map.get(counts, i, 0) + 1
+      counts = Map.put(counts, i, m)
+
+      if n > 0 do
+        (i + 1)..(i + n)
+        |> Enum.reduce(counts, fn j, counts ->
+          c = Map.get(counts, j, 0)
+          Map.put(counts, j, c + m)
+        end)
+      else
+        counts
+      end
+    end)
+    |> Enum.map(&elem(&1, 1))
+    |> Enum.sum()
+  end
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> A.part1()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> A.part2()
+```
