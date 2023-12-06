@@ -1,0 +1,228 @@
+# Advent of Code 2023
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 5
+
+```elixir
+input =
+  "https://adventofcode.com/2023/day/5/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+seeds: 79 14 55 13
+
+seed-to-soil map:
+50 98 2
+52 50 48
+
+soil-to-fertilizer map:
+0 15 37
+37 52 2
+39 0 15
+
+fertilizer-to-water map:
+49 53 8
+0 11 42
+42 0 7
+57 7 4
+
+water-to-light map:
+88 18 7
+18 25 70
+
+light-to-temperature map:
+45 77 23
+81 45 19
+68 64 13
+
+temperature-to-humidity map:
+0 69 1
+1 0 69
+
+humidity-to-location map:
+60 56 37
+56 93 4
+"""
+```
+
+## Part 1
+
+```elixir
+defmodule A do
+  def parse(input) do
+    input
+    |> String.split("\n\n", trim: true)
+    |> then(fn [seeds | maps] ->
+      seeds =
+        seeds
+        |> String.split(": ")
+        |> Enum.at(1)
+        |> String.split(" ", trim: true)
+        |> Enum.map(&String.to_integer/1)
+
+      maps =
+        maps
+        |> Enum.map(fn group ->
+          group
+          |> String.split("\n", trim: true)
+          |> tl()
+          |> Enum.map(fn line ->
+            line
+            |> String.split(" ", trim: true)
+            |> Enum.map(&String.to_integer/1)
+          end)
+        end)
+
+      {seeds, maps}
+    end)
+  end
+
+  defp seeds_to_locations({seeds, maps}) do
+    maps
+    |> Enum.reduce(seeds, fn mappings, ids ->
+      ids
+      |> Enum.map(fn id ->
+        mappings
+        |> Enum.find(fn [_dest, source, len] ->
+          id in source..(source + len)
+        end)
+        |> case do
+          [dest, source, _] ->
+            dest - source + id
+
+          _ ->
+            id
+        end
+      end)
+    end)
+  end
+
+  def seed_ranges_to_locations({ranges, mapping_groups}) do
+    mapping_groups
+    |> Enum.reduce(ranges, fn mappings, ranges ->
+      apply_mappings(mappings, ranges)
+    end)
+  end
+
+  def apply_mappings(mappings, ranges) do
+    mappings
+    |> Enum.reduce([ranges, []], fn mapping, [ranges, done] ->
+      [dst, src, len] = mapping
+      src_range = src..(src + len)
+      offset = dst - src
+
+      Enum.map(ranges, fn range ->
+        cond do
+          # completely inside, map all
+          #   ssssss
+          #   mmmmmm
+          range.first >= src_range.first && range.last <= src_range.last ->
+            mapped = (range.first + offset)..(range.last + offset)
+            [[], [mapped]]
+
+          # range is bigger than source, split into 3
+          #    ssssss
+          #  llmmmmmmrrr
+          range.first < src_range.first && range.last > src_range.last ->
+            left = range.first..(src_range.first - 1)
+            mid = (src_range.first + offset)..(src_range.last + offset)
+            right = (src_range.last + 1)..range.last
+            [[left, right], [mid]]
+
+          # left overlap
+          #    sssssss
+          # lllmmmmMMM
+          range.first < src_range.first && range.last >= src_range.first ->
+            left = range.first..(src_range.first - 1)
+            mid = (src_range.first + offset)..(range.last + offset)
+            [[left], [mid]]
+
+          # right overlap
+          #    sssssss
+          #    MMMmmmmrrrr
+          range.last > src_range.last && range.first <= src_range.last ->
+            mid = (range.first + offset)..(src_range.last + offset)
+            right = (src_range.last + 1)..range.last
+            [[right], [mid]]
+
+          # disjoint (no intersection)
+          true ->
+            if Range.disjoint?(src_range, range) == false do
+              raise "not disjoint!"
+            end
+
+            [[range], []]
+        end
+      end)
+      |> Enum.reduce([[], done], fn [remaining, mapped], [todo, done] ->
+        [todo ++ remaining, done ++ mapped]
+      end)
+    end)
+    |> Enum.concat()
+  end
+
+  def part1(input) do
+    input
+    |> parse()
+    |> seeds_to_locations()
+    |> Enum.min()
+  end
+
+  def part2(input) do
+    input
+    |> parse()
+    |> then(fn {seeds, maps} ->
+      {Enum.chunk_every(seeds, 2) |> Enum.map(fn [a, b] -> a..(a + b) end), maps}
+      # |> tap(fn {seed_ranges, _} ->
+      #   seed_ranges |> Enum.map(& &1 |> Enum.count()) |> Enum.sum() |> IO.inspect()
+      # end)
+    end)
+    |> seed_ranges_to_locations()
+    # |> Enum.map(& &1 |> Enum.count())
+    # |> Enum.sum()
+    |> Enum.map(& &1.first)
+    |> Enum.min()
+  end
+end
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> A.part1()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+sample
+|> A.part2()
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> A.part2()
+|> tap(fn ans ->
+  if ans != 7_873_084 do
+    IO.inspect(ans)
+    raise "should be 7873084"
+  end
+end)
+
+# |> IO.inspect(charlists: :as_lists, printable_limit: :infinity, limit: :infinity)
+```
+
+TODO: I got 7973085 and it was "too high", so I entered 7973084 and it was correct...somewhere is off by 1...
