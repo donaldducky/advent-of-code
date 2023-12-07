@@ -1,4 +1,4 @@
-# Advent of Code 2022
+# Advent of Code 2023
 
 ```elixir
 Mix.install([
@@ -10,13 +10,29 @@ Mix.install([
 
 ```elixir
 input =
-  "https://adventofcode.com/2022/day/1/input"
+  "https://adventofcode.com/2023/day/1/input"
   |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
   |> Map.get(:body)
 ```
 
 ```elixir
 sample = """
+1abc2
+pqr3stu8vwx
+a1b2c3d4e5f
+treb7uchet
+"""
+```
+
+```elixir
+sample2 = """
+two1nine
+eightwothree
+abcone2threexyz
+xtwone3four
+4nineeightseven2
+zoneight234
+7pqrstsixteen
 """
 ```
 
@@ -24,8 +40,77 @@ sample = """
 defmodule A do
   def parse(input) do
     input
-    |> String.split("
-", trim: true)
+    |> String.split("\n", trim: true)
+  end
+
+  def first_and_last_digits(lines) do
+    lines
+    |> Enum.map(fn line ->
+      [_, a] = Regex.run(~r/^[^\d]*(\d)/, line)
+      [_, b] = Regex.run(~r/(\d)[^\d]*$/, line)
+
+      [a, b]
+      |> Enum.join("")
+      |> String.to_integer()
+    end)
+  end
+
+  def part1(input) do
+    parse(input)
+    |> first_and_last_digits()
+    |> Enum.sum()
+  end
+
+  def part2(input) do
+    parse(input)
+    |> Enum.map(fn line ->
+      a =
+        Regex.replace(
+          ~r/(one|two|three|four|five|six|seven|eight|nine)/,
+          line,
+          fn _, match ->
+            case match do
+              "one" -> "1"
+              "two" -> "2"
+              "three" -> "3"
+              "four" -> "4"
+              "five" -> "5"
+              "six" -> "6"
+              "seven" -> "7"
+              "eight" -> "8"
+              "nine" -> "9"
+            end
+          end
+        )
+
+      b =
+        Regex.replace(
+          ~r/(eno|owt|eerht|ruof|evif|xis|neves|thgie|enin)/,
+          String.reverse(line),
+          fn _, match ->
+            case match do
+              "eno" -> "1"
+              "owt" -> "2"
+              "eerht" -> "3"
+              "ruof" -> "4"
+              "evif" -> "5"
+              "xis" -> "6"
+              "neves" -> "7"
+              "thgie" -> "8"
+              "enin" -> "9"
+            end
+          end
+        )
+
+      c = String.replace(a, ~r/[^\d]/, "")
+      d = String.replace(b, ~r/[^\d]/, "")
+
+      # [line, a, b, c, d, String.first(c), String.first(d)]
+      [String.first(c), String.first(d)]
+      |> Enum.join("")
+      |> String.to_integer()
+    end)
+    |> Enum.sum()
   end
 end
 ```
@@ -36,12 +121,14 @@ end
 
 ```elixir
 input
+|> A.part1()
 ```
-
-<!-- livebook:{"reevaluate_automatically":true} -->
 
 ## Part 2
 
+<!-- livebook:{"reevaluate_automatically":true} -->
+
 ```elixir
 input
+|> A.part2()
 ```

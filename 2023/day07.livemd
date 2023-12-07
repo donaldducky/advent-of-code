@@ -17,6 +17,11 @@ input =
 
 ```elixir
 sample = """
+32T3K 765
+T55J5 684
+KK677 28
+KTJJT 220
+QQQJA 483
 """
 ```
 
@@ -25,16 +30,192 @@ defmodule A do
   def parse(input) do
     input
     |> String.split("\n", trim: true)
+    |> Enum.map(fn line ->
+      String.split(line, " ", trim: true)
+      |> then(fn [cards, bid] ->
+        cards =
+          cards
+          |> String.replace("2", "m", global: true)
+          |> String.replace("3", "l", global: true)
+          |> String.replace("4", "k", global: true)
+          |> String.replace("5", "j", global: true)
+          |> String.replace("6", "i", global: true)
+          |> String.replace("7", "h", global: true)
+          |> String.replace("8", "g", global: true)
+          |> String.replace("9", "f", global: true)
+          |> String.replace("T", "e", global: true)
+          |> String.replace("J", "d", global: true)
+          |> String.replace("Q", "c", global: true)
+          |> String.replace("K", "b", global: true)
+          |> String.replace("A", "a", global: true)
+          |> String.split("", trim: true)
+
+        {cards, String.to_integer(bid)}
+      end)
+    end)
+  end
+
+  def parse2(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(fn line ->
+      String.split(line, " ", trim: true)
+      |> then(fn [cards, bid] ->
+        cards =
+          cards
+          |> String.replace("J", "n", global: true)
+          |> String.replace("2", "m", global: true)
+          |> String.replace("3", "l", global: true)
+          |> String.replace("4", "k", global: true)
+          |> String.replace("5", "j", global: true)
+          |> String.replace("6", "i", global: true)
+          |> String.replace("7", "h", global: true)
+          |> String.replace("8", "g", global: true)
+          |> String.replace("9", "f", global: true)
+          |> String.replace("T", "e", global: true)
+          |> String.replace("Q", "c", global: true)
+          |> String.replace("K", "b", global: true)
+          |> String.replace("A", "a", global: true)
+          |> String.split("", trim: true)
+
+        {cards, String.to_integer(bid)}
+      end)
+    end)
+  end
+
+  def add_types2(hands) do
+    hands
+    |> Enum.map(fn {cards, bid} ->
+      groups = Enum.frequencies(cards)
+
+      jokers = Map.get(groups, "n", 0)
+
+      type =
+        case Enum.count(groups) do
+          5 ->
+            :g_high_card
+
+          4 ->
+            :f_one_pair
+
+          3 ->
+            groups
+            |> Enum.find(fn {_k, v} -> v > 1 end)
+            |> elem(1)
+            |> case do
+              3 -> :d_three_kind
+              2 -> :e_two_pair
+            end
+
+          2 ->
+            groups
+            |> Enum.find(fn {_k, v} -> v > 1 end)
+            |> elem(1)
+            |> case do
+              2 -> :c_full_house
+              3 -> :c_full_house
+              4 -> :b_four_kind
+              1 -> :b_four_kind
+            end
+
+          1 ->
+            :a_five_kind
+        end
+
+      type =
+        case {type, jokers} do
+          {:g_high_card, 1} -> :f_one_pair
+          {:f_one_pair, 1} -> :d_three_kind
+          {:f_one_pair, 2} -> :d_three_kind
+          {:e_two_pair, 1} -> :c_full_house
+          {:e_two_pair, 2} -> :b_four_kind
+          {:d_three_kind, 3} -> :b_four_kind
+          {:d_three_kind, 1} -> :b_four_kind
+          {:c_full_house, 2} -> :a_five_kind
+          {:c_full_house, 3} -> :a_five_kind
+          {:b_four_kind, 1} -> :a_five_kind
+          {:b_four_kind, 4} -> :a_five_kind
+          {:a_five_kind, _} -> :a_five_kind
+          {type, 0} -> type
+        end
+
+      {cards, type, bid}
+    end)
+  end
+
+  def add_types(hands) do
+    hands
+    |> Enum.map(fn {cards, bid} ->
+      groups = Enum.frequencies(cards)
+
+      type =
+        case Enum.count(groups) do
+          5 ->
+            :g_high_card
+
+          4 ->
+            :f_one_pair
+
+          3 ->
+            groups
+            |> Enum.find(fn {_k, v} -> v > 1 end)
+            |> elem(1)
+            |> case do
+              3 -> :d_three_kind
+              2 -> :e_two_pair
+            end
+
+          2 ->
+            groups
+            |> Enum.find(fn {_k, v} -> v > 1 end)
+            |> elem(1)
+            |> case do
+              2 -> :c_full_house
+              3 -> :c_full_house
+              4 -> :b_four_kind
+              1 -> :b_four_kind
+            end
+
+          1 ->
+            :a_five_kind
+        end
+
+      {cards, type, bid}
+    end)
+  end
+
+  def sort_by_rank(hands) do
+    hands
+    |> Enum.sort_by(fn {cards, type, _bid} ->
+      {type, cards}
+    end)
+  end
+
+  def calc_scores(hands) do
+    hands
+    |> Enum.reverse()
+    |> Enum.with_index(1)
+    |> Enum.map(fn {{_cards, _types, bid}, i} ->
+      i * bid
+    end)
   end
 
   def part1(input) do
     input
     |> parse()
+    |> add_types()
+    |> sort_by_rank()
+    |> calc_scores()
+    |> Enum.sum()
   end
 
   def part2(input) do
     input
-    |> parse()
+    |> parse2()
+    |> add_types2()
+    |> sort_by_rank()
+    |> calc_scores()
+    |> Enum.sum()
   end
 end
 ```
@@ -48,9 +229,9 @@ input
 |> A.part1()
 ```
 
-<!-- livebook:{"reevaluate_automatically":true} -->
-
 ## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
 
 ```elixir
 input
