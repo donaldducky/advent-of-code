@@ -1,0 +1,131 @@
+# Advent of Code 2023
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 6
+
+```elixir
+input =
+  "https://adventofcode.com/2023/day/6/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+Time:      7  15   30
+Distance:  9  40  200
+"""
+```
+
+```elixir
+defmodule A do
+  def parse(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(fn line ->
+      String.split(line, ~r/\s+/) |> tl() |> Enum.map(&String.to_integer/1)
+    end)
+    |> Enum.zip()
+  end
+
+  def parse2(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(fn line ->
+      line
+      |> String.replace(" ", "")
+      |> String.split(":", trim: true)
+      |> Enum.at(1)
+      |> String.to_integer()
+    end)
+  end
+
+  def num_ways_to_win(t, d) do
+    # assume we can always win
+    mid = div(t, 2)
+
+    mid =
+      if rem(t, 2) == 0 do
+        mid
+      else
+        mid + 1
+      end
+
+    low = calc_lower_bound(0, mid, t, d, 0)
+
+    if rem(t, 2) == 0 do
+      (mid - low) * 2 + 1
+    else
+      (mid - low) * 2
+    end
+  end
+
+  # def calc_lower_bound(_, _, _, _, i) when i > 10, do: raise("abort")
+  def calc_lower_bound(lo, hi, _, _, _i) when lo == hi, do: lo
+
+  def calc_lower_bound(lo, hi, t, d, i) do
+    mid =
+      case hi - lo do
+        1 -> lo
+        n -> lo + div(n, 2)
+      end
+
+    distance = mid * (t - mid)
+    # IO.inspect([lo, hi, mid, distance], label: "calc")
+
+    {lo, hi} =
+      if distance > d do
+        {lo, mid}
+      else
+        case hi - mid do
+          1 ->
+            {hi, hi}
+
+          _ ->
+            {mid, hi}
+        end
+      end
+
+    calc_lower_bound(lo, hi, t, d, i + 1)
+  end
+
+  def part1(input) do
+    input
+    |> parse()
+    |> Enum.map(fn {t, d} -> num_ways_to_win(t, d) end)
+    |> Enum.product()
+  end
+
+  def part2(input) do
+    input
+    |> parse2()
+    |> then(fn [t, d] ->
+      num_ways_to_win(t, d)
+    end)
+  end
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+# sample
+|> A.part1()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> A.part2()
+```
