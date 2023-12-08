@@ -96,6 +96,9 @@ defmodule A do
     ins
     |> Stream.cycle()
     |> Stream.with_index()
+    # this 100_000 is arbitrary and depends on the number of entries we want for each value
+    # luckily, the pattern is constant for this puzzle
+    # ie. we may end up on the end point every 10 steps on a single path
     |> Enum.take(100_000)
     |> Enum.reduce_while({to_navigate, %{}}, fn {dir, i}, {to_navigate, on} ->
       to_navigate
@@ -134,33 +137,20 @@ defmodule A do
     |> elem(1)
     |> Enum.map(&(elem(&1, 1) |> Enum.unzip() |> elem(1)))
     |> Enum.map(&(Enum.take(&1, 2) |> then(fn [a, b] -> a - b end)))
-    # find least common multiple
     |> least_common_multiple()
   end
 
+  # Here's a good walkthrough with calculator for LCM
+  # https://www.calculatorsoup.com/calculators/math/lcm.php
   def least_common_multiple(ns) do
-    m =
-      ns
-      |> Enum.map(fn n -> {n, n} end)
-      |> Enum.into(%{})
-
-    Stream.iterate(1, &(&1 + 1))
-    # |> Enum.take(3)
-    |> Enum.reduce_while(m, fn _, m ->
-      {k, v} =
-        m
-        |> Enum.min_by(fn {_k, v} -> v end)
-
-      n = v + k
-      m = Map.put(m, k, n)
-
-      if m |> Enum.map(&elem(&1, 1)) |> Enum.all?(&(&1 == n)) do
-        {:halt, n}
-      else
-        {:cont, m}
-      end
-    end)
+    Enum.reduce(ns, fn a, b -> lcm(a, b) end)
   end
+
+  def lcm(a, b), do: div(a * b, gcd(a, b))
+
+  # Euclid's algorithm
+  def gcd(0, b), do: b
+  def gcd(a, b), do: gcd(rem(b, a), a)
 end
 ```
 
