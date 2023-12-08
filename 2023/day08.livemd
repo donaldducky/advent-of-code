@@ -1,0 +1,183 @@
+# Advent of Code 2023
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 8
+
+```elixir
+input =
+  "https://adventofcode.com/2023/day/8/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+RL
+
+AAA = (BBB, CCC)
+BBB = (DDD, EEE)
+CCC = (ZZZ, GGG)
+DDD = (DDD, DDD)
+EEE = (EEE, EEE)
+GGG = (GGG, GGG)
+ZZZ = (ZZZ, ZZZ)
+"""
+```
+
+```elixir
+sample2 = """
+LLR
+
+AAA = (BBB, BBB)
+BBB = (AAA, ZZZ)
+ZZZ = (ZZZ, ZZZ)
+"""
+```
+
+```elixir
+sample3 = """
+LR
+
+11A = (11B, XXX)
+11B = (XXX, 11Z)
+11Z = (11B, XXX)
+22A = (22B, XXX)
+22B = (22C, 22C)
+22C = (22Z, 22Z)
+22Z = (22B, 22B)
+XXX = (XXX, XXX)
+"""
+```
+
+```elixir
+defmodule A do
+  def parse(input) do
+    input
+    |> String.split("\n\n", trim: true)
+    |> then(fn [instructions, map] ->
+      [
+        String.split(instructions, "", trim: true),
+        map
+        |> String.split("\n", trim: true)
+        |> Enum.map(fn mapping ->
+          Regex.run(~r/(\w+) = \((\w+), (\w+)\)/, mapping)
+          |> tl
+          |> then(fn [key, left, right] ->
+            {key, %{"L" => left, "R" => right}}
+          end)
+        end)
+        |> Enum.into(%{})
+      ]
+    end)
+  end
+
+  def navigate([ins, map]) do
+    ins
+    |> Stream.cycle()
+    |> Enum.reduce_while({"AAA", 0}, fn dir, {cur, n} ->
+      case get_in(map, [cur, dir]) do
+        "ZZZ" -> {:halt, n + 1}
+        next -> {:cont, {next, n + 1}}
+      end
+    end)
+  end
+
+  def navigate2([ins, map]) do
+    to_navigate =
+      map
+      |> Map.keys()
+      |> Enum.filter(&String.ends_with?(&1, "A"))
+
+    ins
+    |> Stream.cycle()
+    |> Stream.with_index()
+    |> Enum.take(100_000)
+    |> Enum.reduce_while({to_navigate, %{}}, fn {dir, i}, {to_navigate, on} ->
+      to_navigate
+      |> Enum.map(&get_in(map, [&1, dir]))
+      |> then(fn next ->
+        on =
+          next
+          |> Enum.with_index()
+          |> Enum.reduce(on, fn {pos, idx}, on ->
+            if pos |> String.ends_with?("Z") do
+              landed = {pos, i}
+
+              on
+              |> Map.update(idx, [landed], &[landed | &1])
+            else
+              on
+            end
+          end)
+
+        {:cont, {next, on}}
+      end)
+    end)
+  end
+
+  def part1(input) do
+    input
+    |> parse()
+    |> navigate()
+  end
+
+  def part2(input) do
+    input
+    |> parse()
+    |> navigate2()
+    # calculate periods
+    |> elem(1)
+    |> Enum.map(&(elem(&1, 1) |> Enum.unzip() |> elem(1)))
+    |> Enum.map(&(Enum.take(&1, 2) |> then(fn [a, b] -> a - b end)))
+    # find least common multiple
+    |> least_common_multiple()
+  end
+
+  def least_common_multiple(ns) do
+    m =
+      ns
+      |> Enum.map(fn n -> {n, n} end)
+      |> Enum.into(%{})
+
+    Stream.iterate(1, &(&1 + 1))
+    # |> Enum.take(3)
+    |> Enum.reduce_while(m, fn _, m ->
+      {k, v} =
+        m
+        |> Enum.min_by(fn {_k, v} -> v end)
+
+      n = v + k
+      m = Map.put(m, k, n)
+
+      if m |> Enum.map(&elem(&1, 1)) |> Enum.all?(&(&1 == n)) do
+        {:halt, n}
+      else
+        {:cont, m}
+      end
+    end)
+  end
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> A.part1()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> A.part2()
+```
