@@ -1,0 +1,96 @@
+# Advent of Code 2023
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 9
+
+```elixir
+input =
+  "https://adventofcode.com/2023/day/9/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+0 3 6 9 12 15
+1 3 6 10 15 21
+10 13 16 21 30 45
+"""
+```
+
+```elixir
+defmodule A do
+  def part1(input) do
+    input
+    |> parse()
+    |> Enum.map(fn seq ->
+      seq
+      |> diff()
+      |> Enum.map(&List.last/1)
+      |> Enum.sum()
+    end)
+    |> Enum.sum()
+  end
+
+  def part2(input) do
+    input
+    |> parse()
+    |> Enum.map(fn seq ->
+      seq
+      |> diff()
+      |> Enum.map(&hd/1)
+      |> Enum.reduce(fn n, acc -> n - acc end)
+    end)
+    |> Enum.sum()
+  end
+
+  def parse(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(fn line ->
+      line
+      |> String.split(" ", trim: true)
+      |> Enum.map(&String.to_integer/1)
+    end)
+  end
+
+  def diff(seq) do
+    Stream.iterate(0, &(&1 + 1))
+    |> Enum.reduce_while([seq], fn _i, [seq | _tl] = acc ->
+      seq
+      |> Enum.chunk_every(2, 1, :discard)
+      |> Enum.map(fn [a, b] -> b - a end)
+      |> then(fn diff ->
+        if Enum.all?(diff, &(&1 == 0)) do
+          {:halt, acc}
+        else
+          {:cont, [diff | acc]}
+        end
+      end)
+    end)
+  end
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> A.part1()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> A.part2()
+```
