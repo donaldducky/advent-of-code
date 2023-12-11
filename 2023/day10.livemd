@@ -1,0 +1,326 @@
+# Advent of Code 2023
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 10
+
+```elixir
+input =
+  "https://adventofcode.com/2023/day/10/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+7-F7-
+.FJ|7
+SJLL7
+|F--J
+LJ.LJ
+"""
+```
+
+```elixir
+defmodule A do
+  def parse(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(&String.split(&1, "", trim: true))
+  end
+
+  def info(rows) do
+    {s_row, s_y} =
+      rows
+      |> Enum.with_index()
+      |> Enum.find(&("S" in elem(&1, 0)))
+
+    {_s_c, s_x} =
+      s_row
+      |> Enum.with_index()
+      |> Enum.find(&(elem(&1, 0) == "S"))
+
+    data =
+      for {row, y} <- Enum.with_index(rows),
+          {c, x} <- Enum.with_index(row),
+          into: %{},
+          do: {{x, y}, c}
+
+    %{
+      data: data,
+      h: Enum.count(rows),
+      w: Enum.count(hd(rows)),
+      s: {s_x, s_y}
+    }
+
+    # |> IO.inspect()
+  end
+
+  def walk(%{s: s} = info) do
+    Stream.iterate(0, &(&1 + 1))
+    |> Enum.reduce_while({[{s, 0}], Map.new()}, fn _i, {open, visited} ->
+      # if i == 30 do
+      #   raise "too many iterations"
+      # end
+
+      case open do
+        [cur | rest] ->
+          {v, steps} = cur
+          to_visit = visit(cur, visited, info)
+          visited = Map.put(visited, v, steps)
+
+          {:cont, {rest ++ to_visit, visited}}
+
+        [] ->
+          {:halt, visited}
+      end
+    end)
+  end
+
+  def draw_visited(visited) do
+    {{w, _}, _} = Enum.max_by(visited, fn {{x, _y}, _v} -> x end)
+    {{_, h}, _} = Enum.max_by(visited, fn {{_x, y}, _v} -> y end)
+
+    padding =
+      Enum.max_by(visited, fn {{_x, _y}, v} -> v end)
+      |> elem(1)
+      |> Integer.to_string()
+      |> String.length()
+
+    Enum.map(0..h, fn y ->
+      Enum.map(0..w, fn x ->
+        Map.get(visited, {x, y})
+        |> case do
+          nil ->
+            " " |> List.duplicate(padding) |> Enum.join()
+
+          n ->
+            n
+            |> Integer.to_string()
+            |> String.pad_leading(padding, " ")
+        end
+      end)
+      |> Enum.join("|")
+    end)
+    |> Enum.join("\n")
+    |> IO.puts()
+
+    visited
+  end
+
+  def visit({pos, step}, visited, info) do
+    expand(pos)
+    |> remove_lower_visited(visited, step)
+    |> remove_out_of_bounds(info.w, info.h)
+    |> remove_unwalkable(pos, info.data)
+    |> Enum.map(&{&1, step + 1})
+
+    # |> dbg()
+  end
+
+  def expand({x, y}) do
+    [
+      {1, 0},
+      {-1, 0},
+      {0, 1},
+      {0, -1}
+    ]
+    |> Enum.map(fn {dx, dy} -> {x + dx, y + dy} end)
+  end
+
+  def remove_lower_visited(vs, visited, step) do
+    vs
+    |> Enum.filter(fn {x, y} ->
+      case Map.get(visited, {x, y}) do
+        nil -> true
+        n -> n > step
+      end
+    end)
+  end
+
+  def remove_out_of_bounds(vs, w, h) do
+    vs
+    |> Enum.filter(fn {x, y} ->
+      x >= 0 && x < w && y >= 0 && y < h
+    end)
+  end
+
+  def remove_unwalkable(vs, {x, y}, data) do
+    s = get_symbol(data, x, y)
+    dirs = symbol_to_dirs(s)
+
+    vs
+    |> Enum.filter(fn {x2, y2} ->
+      s2 = get_symbol(data, x2, y2)
+      dirs2 = symbol_to_dirs(s2)
+
+      case {x2 - x, y2 - y} do
+        {0, 1} -> :s in dirs && :n in dirs2
+        {0, -1} -> :n in dirs && :s in dirs2
+        {1, 0} -> :e in dirs && :w in dirs2
+        {-1, 0} -> :w in dirs && :e in dirs2
+      end
+    end)
+  end
+
+  def get_symbol(data, x, y) do
+    Map.fetch!(data, {x, y})
+  end
+
+  def symbol_to_dirs("|"), do: [:n, :s]
+  def symbol_to_dirs("-"), do: [:e, :w]
+  def symbol_to_dirs("L"), do: [:n, :e]
+  def symbol_to_dirs("J"), do: [:n, :w]
+  def symbol_to_dirs("7"), do: [:s, :w]
+  def symbol_to_dirs("F"), do: [:s, :e]
+  def symbol_to_dirs("S"), do: [:n, :s, :e, :w]
+  def symbol_to_dirs(_), do: []
+
+  def part1(input) do
+    input
+    |> parse()
+    |> info()
+    |> walk()
+    |> Enum.max_by(&elem(&1, 1))
+    |> elem(1)
+  end
+
+  def part2(input) do
+    input
+    |> parse()
+    |> info()
+    |> walk2()
+    |> draw_visited()
+  end
+
+  def walk2(%{s: s} = info) do
+    Stream.iterate(0, &(&1 + 1))
+    |> Enum.reduce_while({s, Map.new()}, fn i, {{x, y}, visited} ->
+      if Map.has_key?(visited, {x, y}) do
+        {:halt, visited}
+      else
+        visited = Map.put(visited, {x, y}, i)
+
+        next =
+          info.data
+          |> get_symbol(x, y)
+          |> symbol_to_dirs()
+          |> Enum.map(fn dir ->
+            case dir do
+              :e -> {{x + 1, y}, :w}
+              :w -> {{x - 1, y}, :e}
+              :s -> {{x, y + 1}, :n}
+              :n -> {{x, y - 1}, :s}
+            end
+          end)
+          |> Enum.filter(fn {pos, _} -> !Map.has_key?(visited, pos) end)
+          |> Enum.find(fn {pos, d} ->
+            sym = Map.get(info.data, pos)
+            sym != nil && d in symbol_to_dirs(sym)
+          end)
+
+        case next do
+          nil ->
+            {:halt, visited}
+
+          {next, _} ->
+            {:cont, {next, visited}}
+        end
+      end
+    end)
+  end
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> A.part1()
+```
+
+## Part 2
+
+```elixir
+sample1 = """
+...........
+.S-------7.
+.|F-----7|.
+.||.....||.
+.||.....||.
+.|L-7.F-J|.
+.|..|.|..|.
+.L--J.L--J.
+...........
+"""
+```
+
+```elixir
+sample2 = """
+..........
+.S------7.
+.|F----7|.
+.||....||.
+.||....||.
+.|L-7F-J|.
+.|..||..|.
+.L--JL--J.
+..........
+"""
+```
+
+```elixir
+sample3 = """
+.F----7F7F7F7F-7....
+.|F--7||||||||FJ....
+.||.FJ||||||||L7....
+FJL7L7LJLJ||LJ.L-7..
+L--J.L7...LJS7F-7L7.
+....F-J..F7FJ|L7L7L7
+....L7.F7||L7|.L7L7|
+.....|FJLJ|FJ|F7|.LJ
+....FJL-7.||.||||...
+....L---J.LJ.LJLJ...
+"""
+```
+
+```elixir
+sample4 = """
+FF7FSF7F7F7F7F7F---7
+L|LJ||||||||||||F--J
+FL-7LJLJ||||||LJL-77
+F--JF--7||LJLJ7F7FJ-
+L---JF-JLJ.||-FJLJJ7
+|F|F-JF---7F7-L7L|7|
+|FFJF7L7F-JF7|JL---7
+7-L-JL7||F7|L7F-7F7|
+L.L7LFJ|||||FJL7||LJ
+L7JLJL-JLJLJL--JLJ.L
+"""
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+sample4
+|> A.part2()
+```
+
+## Section
+
+```elixir
+sample4
+|> String.replace("F", "╔")
+|> String.replace("7", "╗")
+|> String.replace("L", "╚")
+|> String.replace("J", "╝")
+|> String.replace("-", "═")
+|> String.replace("|", "║")
+|> IO.puts()
+```
