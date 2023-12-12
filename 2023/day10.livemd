@@ -2,7 +2,8 @@
 
 ```elixir
 Mix.install([
-  {:req, "~> 0.3.2"}
+  {:req, "~> 0.3.2"},
+  {:kino, "~> 0.11.3"}
 ])
 ```
 
@@ -22,6 +23,64 @@ sample = """
 SJLL7
 |F--J
 LJ.LJ
+"""
+```
+
+```elixir
+sample1 = """
+...........
+.S-------7.
+.|F-----7|.
+.||.....||.
+.||.....||.
+.|L-7.F-J|.
+.|..|.|..|.
+.L--J.L--J.
+...........
+"""
+```
+
+```elixir
+sample2 = """
+..........
+.S------7.
+.|F----7|.
+.||....||.
+.||....||.
+.|L-7F-J|.
+.|..||..|.
+.L--JL--J.
+..........
+"""
+```
+
+```elixir
+sample3 = """
+.F----7F7F7F7F-7....
+.|F--7||||||||FJ....
+.||.FJ||||||||L7....
+FJL7L7LJLJ||LJ.L-7..
+L--J.L7...LJS7F-7L7.
+....F-J..F7FJ|L7L7L7
+....L7.F7||L7|.L7L7|
+.....|FJLJ|FJ|F7|.LJ
+....FJL-7.||.||||...
+....L---J.LJ.LJLJ...
+"""
+```
+
+```elixir
+sample4 = """
+FF7FSF7F7F7F7F7F---7
+L|LJ||||||||||||F--J
+FL-7LJLJ||||||LJL-77
+F--JF--7||LJLJ7F7FJ-
+L---JF-JLJ.||-FJLJJ7
+|F|F-JF---7F7-L7L|7|
+|FFJF7L7F-JF7|JL---7
+7-L-JL7||F7|L7F-7F7|
+L.L7LFJ|||||FJL7||LJ
+L7JLJL-JLJLJL--JLJ.L
 """
 ```
 
@@ -193,45 +252,7 @@ defmodule A do
     input
     |> parse()
     |> info()
-    |> walk2()
-    |> draw_visited()
-  end
-
-  def walk2(%{s: s} = info) do
-    Stream.iterate(0, &(&1 + 1))
-    |> Enum.reduce_while({s, Map.new()}, fn i, {{x, y}, visited} ->
-      if Map.has_key?(visited, {x, y}) do
-        {:halt, visited}
-      else
-        visited = Map.put(visited, {x, y}, i)
-
-        next =
-          info.data
-          |> get_symbol(x, y)
-          |> symbol_to_dirs()
-          |> Enum.map(fn dir ->
-            case dir do
-              :e -> {{x + 1, y}, :w}
-              :w -> {{x - 1, y}, :e}
-              :s -> {{x, y + 1}, :n}
-              :n -> {{x, y - 1}, :s}
-            end
-          end)
-          |> Enum.filter(fn {pos, _} -> !Map.has_key?(visited, pos) end)
-          |> Enum.find(fn {pos, d} ->
-            sym = Map.get(info.data, pos)
-            sym != nil && d in symbol_to_dirs(sym)
-          end)
-
-        case next do
-          nil ->
-            {:halt, visited}
-
-          {next, _} ->
-            {:cont, {next, visited}}
-        end
-      end
-    end)
+    |> walk()
   end
 end
 ```
@@ -248,79 +269,184 @@ input
 ## Part 2
 
 ```elixir
-sample1 = """
-...........
-.S-------7.
-.|F-----7|.
-.||.....||.
-.||.....||.
-.|L-7.F-J|.
-.|..|.|..|.
-.L--J.L--J.
-...........
-"""
+zoom = fn input ->
+  info =
+    input
+    |> A.parse()
+    |> A.info()
+
+  visited = info |> A.walk()
+
+  # replace S
+  {{x, y}, _s} = info.data |> Enum.find(fn {_k, v} -> v == "S" end)
+
+  new_symbol =
+    [
+      {1, 0},
+      {-1, 0},
+      {0, 1},
+      {0, -1}
+    ]
+    |> Enum.map(fn {x1, y1} -> {x1 + x, y1 + y} end)
+    |> A.remove_out_of_bounds(info.w, info.h)
+    |> A.remove_unwalkable({x, y}, info.data)
+    |> Enum.map(fn {x1, y1} -> {x1 - x, y1 - y} end)
+    |> Enum.map(fn
+      {1, 0} -> :e
+      {-1, 0} -> :w
+      {0, 1} -> :s
+      {0, -1} -> :n
+    end)
+    |> Enum.sort()
+    |> case do
+      [:e, :s] -> "F"
+      [:e, :w] -> "-"
+      [:n, :s] -> "|"
+      [:n, :w] -> "J"
+      [:s, :w] -> "7"
+      [:e, :n] -> "L"
+    end
+
+  info = put_in(info, [:data, {x, y}], new_symbol)
+
+  blocked =
+    visited
+    |> Map.keys()
+    |> Enum.reduce(MapSet.new(), fn {x, y}, acc ->
+      case Map.get(info.data, {x, y}) do
+        "F" -> [{1, 1}, {1, 2}, {2, 1}]
+        "J" -> [{0, 1}, {1, 1}, {1, 0}]
+        "7" -> [{0, 1}, {1, 1}, {1, 2}]
+        "L" -> [{1, 0}, {1, 1}, {2, 1}]
+        "-" -> [{0, 1}, {1, 1}, {2, 1}]
+        "|" -> [{1, 0}, {1, 1}, {1, 2}]
+        _ -> []
+      end
+      |> Enum.map(fn {x1, y1} -> {3 * x + x1, 3 * y + y1} end)
+      |> Enum.reduce(acc, fn v, acc -> MapSet.put(acc, v) end)
+    end)
+
+  {_, outside} =
+    Stream.iterate(0, &(&1 + 1))
+    # |> Enum.take(1000)
+    |> Enum.reduce_while({[{0, 0}], MapSet.new()}, fn i, {open, outside} ->
+      case open do
+        [] ->
+          {:halt, {i, outside}}
+
+        [{cx, cy} = cur | rest] ->
+          to_explore =
+            [{1, 0}, {-1, 0}, {0, 1}, {0, -1}]
+            |> Enum.map(fn {dx, dy} -> {cx + dx, cy + dy} end)
+            |> Enum.filter(fn {x, y} ->
+              x >= 0 && x < info.w * 3 && y >= 0 && y < info.h * 3
+            end)
+            |> Enum.reject(fn v -> MapSet.member?(blocked, v) end)
+            |> Enum.reject(fn v -> MapSet.member?(outside, v) end)
+
+          {:cont, {(rest ++ to_explore) |> Enum.uniq(), MapSet.put(outside, cur)}}
+      end
+    end)
+
+  # |> IO.inspect()
+
+  all = for y <- 0..(info.h * 3), x <- 0..(info.w * 3), into: MapSet.new(), do: {x, y}
+
+  inside =
+    all
+    |> MapSet.difference(blocked)
+    |> MapSet.difference(outside)
+
+  actual =
+    inside
+    |> Enum.filter(fn {x, y} -> rem(x, 3) == 1 && rem(y, 3) == 1 end)
+    |> Enum.into(MapSet.new())
+
+  MapSet.size(actual) |> IO.inspect()
+
+  for y <- 0..(info.h * 3) do
+    for x <- 0..(info.w * 3) do
+      cond do
+        MapSet.member?(blocked, {x, y}) -> "█"
+        MapSet.member?(outside, {x, y}) -> "o"
+        MapSet.member?(actual, {x, y}) -> "X"
+        MapSet.member?(inside, {x, y}) -> "I"
+        true -> " "
+      end
+    end
+    |> Enum.join("")
+  end
+  |> Enum.join("\n")
+  |> then(fn s ->
+    [
+      "<pre style='line-height: 0.75rem; font-size: 0.75rem'>",
+      s,
+      "</pre>"
+    ]
+    |> Enum.join("")
+    |> Kino.Markdown.new()
+  end)
+end
+
+zoom.(input)
+```
+
+## Draw
+
+```elixir
+draw = fn input ->
+  info =
+    input
+    |> A.parse()
+    |> A.info()
+
+  visited = info |> A.walk()
+
+  for y <- 0..info.h do
+    for x <- 0..info.w do
+      if Map.has_key?(visited, {x, y}) do
+        Map.get(info.data, {x, y})
+      else
+        "."
+      end
+    end
+    |> Enum.join("")
+  end
+  |> Enum.join("\n")
+  |> String.replace("F", "╔")
+  |> String.replace("7", "╗")
+  |> String.replace("L", "╚")
+  |> String.replace("J", "╝")
+  |> String.replace("-", "═")
+  |> String.replace("|", "║")
+  |> then(fn s ->
+    [
+      "<pre style='line-height: 0.75rem; font-size: 0.75rem'>",
+      s,
+      "</pre>"
+    ]
+    |> Enum.join("")
+    |> Kino.Markdown.new()
+  end)
+end
 ```
 
 ```elixir
-sample2 = """
-..........
-.S------7.
-.|F----7|.
-.||....||.
-.||....||.
-.|L-7F-J|.
-.|..||..|.
-.L--JL--J.
-..........
-"""
+draw.(sample1)
 ```
 
 ```elixir
-sample3 = """
-.F----7F7F7F7F-7....
-.|F--7||||||||FJ....
-.||.FJ||||||||L7....
-FJL7L7LJLJ||LJ.L-7..
-L--J.L7...LJS7F-7L7.
-....F-J..F7FJ|L7L7L7
-....L7.F7||L7|.L7L7|
-.....|FJLJ|FJ|F7|.LJ
-....FJL-7.||.||||...
-....L---J.LJ.LJLJ...
-"""
+draw.(sample2)
 ```
 
 ```elixir
-sample4 = """
-FF7FSF7F7F7F7F7F---7
-L|LJ||||||||||||F--J
-FL-7LJLJ||||||LJL-77
-F--JF--7||LJLJ7F7FJ-
-L---JF-JLJ.||-FJLJJ7
-|F|F-JF---7F7-L7L|7|
-|FFJF7L7F-JF7|JL---7
-7-L-JL7||F7|L7F-7F7|
-L.L7LFJ|||||FJL7||LJ
-L7JLJL-JLJLJL--JLJ.L
-"""
+draw.(sample3)
 ```
 
-<!-- livebook:{"reevaluate_automatically":true} -->
-
 ```elixir
-sample4
-|> A.part2()
+draw.(sample4)
 ```
 
-## Section
-
 ```elixir
-sample4
-|> String.replace("F", "╔")
-|> String.replace("7", "╗")
-|> String.replace("L", "╚")
-|> String.replace("J", "╝")
-|> String.replace("-", "═")
-|> String.replace("|", "║")
-|> IO.puts()
+draw.(input)
 ```
