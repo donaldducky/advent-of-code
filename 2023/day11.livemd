@@ -1,0 +1,140 @@
+# Advent of Code 2023
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 11
+
+```elixir
+input =
+  "https://adventofcode.com/2023/day/11/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+...#......
+.......#..
+#.........
+..........
+......#...
+.#........
+.........#
+..........
+.......#..
+#...#.....
+"""
+```
+
+```elixir
+defmodule A do
+  def parse(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(&String.split(&1, "", trim: true))
+    |> then(fn rows ->
+      h = length(rows)
+      w = length(hd(rows))
+
+      grid =
+        for {row, y} <- Enum.with_index(rows),
+            {c, x} <- Enum.with_index(row),
+            c == "#",
+            into: MapSet.new(),
+            do: {x, y}
+
+      %{
+        grid: grid,
+        h: h,
+        w: w
+      }
+    end)
+  end
+
+  def part1(input) do
+    input
+    |> parse()
+    |> expand_grid(2)
+    |> calc_distances()
+    |> Enum.sum()
+  end
+
+  def part2(input) do
+    input
+    |> parse()
+    |> expand_grid(1_000_000)
+    |> calc_distances()
+    |> Enum.sum()
+  end
+
+  def expand_grid(data, n) do
+    [xs, ys] =
+      data.grid
+      |> MapSet.to_list()
+      |> Enum.unzip()
+      |> Tuple.to_list()
+      |> Enum.map(&Enum.into(&1, MapSet.new()))
+
+    {x_map, _} =
+      0..data.h
+      |> Enum.reduce({%{}, 0}, fn x, {x_mod, offset} ->
+        if MapSet.member?(xs, x) do
+          {Map.put(x_mod, x, offset), offset + 1}
+        else
+          {x_mod, offset + n}
+        end
+      end)
+
+    {y_map, _} =
+      0..data.w
+      |> Enum.reduce({%{}, 0}, fn y, {y_mod, offset} ->
+        if MapSet.member?(ys, y) do
+          {Map.put(y_mod, y, offset), offset + 1}
+        else
+          {y_mod, offset + n}
+        end
+      end)
+
+    data.grid
+    |> Enum.map(fn {x, y} -> {Map.get(x_map, x), Map.get(y_map, y)} end)
+    |> Enum.into(MapSet.new())
+    |> then(fn new_grid ->
+      Map.put(data, :grid, new_grid)
+    end)
+  end
+
+  def calc_distances(data) do
+    for(a <- data.grid, b <- data.grid, do: [a, b])
+    |> Enum.map(&Enum.sort/1)
+    |> Enum.uniq()
+    |> Enum.filter(fn [a, b] -> a != b end)
+    |> Enum.map(fn [a, b] -> manhattan_distance(a, b) end)
+  end
+
+  def manhattan_distance({x1, y1}, {x2, y2}) do
+    abs(x1 - x2) + abs(y1 - y2)
+  end
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> A.part1()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> A.part2()
+```
