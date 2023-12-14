@@ -1,0 +1,143 @@
+# Advent of Code 2023
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 12
+
+```elixir
+input =
+  "https://adventofcode.com/2023/day/12/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+???.### 1,1,3
+.??..??...?##. 1,1,3
+?#?#?#?#?#?#?#? 1,3,1,6
+????.#...#... 4,1,1
+????.######..#####. 1,6,5
+?###???????? 3,2,1
+"""
+```
+
+```elixir
+defmodule A do
+  def parse(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(&String.split(&1, " ", trim: true))
+    |> Enum.map(fn [a, b] ->
+      [a, String.split(b, ",", trim: true) |> Enum.map(&String.to_integer/1)]
+    end)
+  end
+
+  def part1(input) do
+    input
+    |> parse()
+    |> Enum.map(fn [s, criteria] ->
+      s
+      |> permutations()
+      |> select(criteria)
+      |> Enum.count()
+    end)
+    |> Enum.sum()
+  end
+
+  def part2(input) do
+    input
+    |> parse()
+    |> Enum.map(fn [s, criteria] ->
+      s
+      |> permutations()
+      |> select(criteria)
+      |> Enum.count()
+      |> then(fn n -> n ** 5 end)
+    end)
+    |> Enum.sum()
+  end
+
+  def permutations(s) do
+    s
+    |> String.split("", trim: true)
+    |> Enum.reduce([""], fn c, acc ->
+      case c do
+        "?" -> [".", "#"]
+        _ -> [c]
+      end
+      |> then(fn cs ->
+        Enum.flat_map(cs, fn c ->
+          Enum.map(acc, fn s -> s <> c end)
+        end)
+      end)
+    end)
+  end
+
+  def select(ss, criteria) do
+    r =
+      criteria
+      |> Enum.map(fn n -> "[#]{#{n}}" end)
+      |> Enum.intersperse("[\.]+")
+      |> Enum.join()
+      |> then(fn rs ->
+        "^[\.]*" <> rs <> "[\.]*$"
+      end)
+      |> Regex.compile!()
+
+    Enum.filter(ss, fn s -> Regex.match?(r, s) end)
+  end
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> A.part1()
+```
+
+```elixir
+r =
+  Regex.compile!(
+    ["^[\.]*", "[#]{3}", "[.]+", "[#]{2}", "[.]+", "[#]{1}", "[\.]*$"]
+    |> Enum.join()
+  )
+```
+
+```elixir
+"?###????????"
+|> String.split("", trim: true)
+|> Enum.reduce([""], fn c, acc ->
+  case c do
+    "?" -> [".", "#"]
+    _ -> [c]
+  end
+  |> then(fn cs ->
+    Enum.flat_map(cs, fn c ->
+      Enum.map(acc, fn s -> s <> c end)
+    end)
+  end)
+end)
+|> Enum.filter(&Regex.match?(r, &1))
+|> Enum.count()
+```
+
+```elixir
+Regex.match?(r, "#.#.###")
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+sample
+|> A.part2()
+```
