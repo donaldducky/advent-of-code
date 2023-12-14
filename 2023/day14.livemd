@@ -1,0 +1,215 @@
+# Advent of Code 2023
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 14
+
+```elixir
+input =
+  "https://adventofcode.com/2023/day/14/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+O....#....
+O.OO#....#
+.....##...
+OO.#O....O
+.O.....O#.
+O.#..O.#.#
+..O..#O..O
+.......O..
+#....###..
+#OO..#....
+"""
+```
+
+```elixir
+defmodule A do
+  def parse(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(&String.split(&1, "", trim: true))
+  end
+
+  def transpose(list_of_lists) do
+    list_of_lists
+    |> List.zip()
+    |> Enum.map(&Tuple.to_list/1)
+  end
+
+  def rotate(list_of_lists) do
+    list_of_lists
+    |> Enum.reverse()
+    |> transpose()
+  end
+
+  def roll(tiles) do
+    tiles
+    |> Enum.map(fn tiles ->
+      tiles
+      |> Enum.reduce({0, 0, []}, fn tile, {rocks, spaces, collected} ->
+        case tile do
+          "O" ->
+            {rocks + 1, spaces, collected}
+
+          "." ->
+            {rocks, spaces + 1, collected}
+
+          "#" ->
+            collected =
+              collected ++ List.duplicate("O", rocks) ++ List.duplicate(".", spaces) ++ ["#"]
+
+            {0, 0, collected}
+        end
+      end)
+      |> then(fn
+        {0, 0, collected} ->
+          collected
+
+        {rocks, spaces, collected} ->
+          collected ++ List.duplicate("O", rocks) ++ List.duplicate(".", spaces)
+      end)
+    end)
+  end
+
+  def measure_load(tiles) do
+    tiles
+    |> Enum.reverse()
+    |> Enum.with_index(1)
+    |> Enum.map(fn {row, i} ->
+      row
+      |> Enum.filter(&(&1 == "O"))
+      |> Enum.count()
+      |> Kernel.*(i)
+    end)
+    |> Enum.sum()
+  end
+
+  def part1(input) do
+    input
+    |> parse()
+    |> transpose()
+    |> roll()
+    |> transpose()
+    |> measure_load()
+  end
+
+  def part2(input) do
+    input
+    |> parse()
+    |> then(fn tiles ->
+      0..1_000_000_000
+      |> Enum.take(1000)
+      |> Enum.reduce({tiles, Map.new(), Map.new(), nil}, fn i, {tiles, seen, loads, start} ->
+        hash = tiles |> Enum.map(&Enum.join(&1)) |> Enum.join()
+
+        loads = Map.put(loads, i, measure_load(tiles))
+
+        "#{i} (#{measure_load(tiles)}) = #{hash}"
+        |> IO.inspect()
+
+        start =
+          if Map.get(seen, hash) == 2 && start == nil do
+            IO.inspect(i, label: "cycle start")
+            i
+          else
+            start
+          end
+
+        if Map.get(seen, hash) == 3 do
+          IO.inspect(start, label: "cycle start")
+          IO.inspect(i, label: "cycle end")
+
+          period =
+            (i - start)
+            |> IO.inspect(label: "period")
+
+          k =
+            (rem(1_000_000_000 - start, period) + start)
+            |> IO.inspect(label: "key")
+
+          Map.get(loads, k)
+          |> IO.inspect(label: "winner")
+
+          raise "on the 3rd round"
+        end
+
+        {cycle(tiles), Map.update(seen, hash, 1, &(&1 + 1)), loads, start}
+      end)
+    end)
+  end
+
+  def cycle(tiles) do
+    tiles
+    |> roll_north()
+    |> roll_west()
+    |> roll_south()
+    |> roll_east()
+  end
+
+  def roll_north(tiles) do
+    tiles
+    |> transpose()
+    |> roll()
+    |> transpose()
+  end
+
+  def roll_west(tiles) do
+    tiles
+    |> rotate()
+    |> transpose()
+    |> roll()
+    |> transpose()
+    |> rotate()
+    |> rotate()
+    |> rotate()
+  end
+
+  def roll_south(tiles) do
+    tiles
+    |> rotate()
+    |> rotate()
+    |> transpose()
+    |> roll()
+    |> transpose()
+    |> rotate()
+    |> rotate()
+  end
+
+  def roll_east(tiles) do
+    tiles
+    |> rotate()
+    |> rotate()
+    |> rotate()
+    |> transpose()
+    |> roll()
+    |> transpose()
+    |> rotate()
+  end
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> A.part1()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> A.part2()
+```
