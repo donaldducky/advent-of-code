@@ -50,57 +50,99 @@ defmodule A do
     input
     |> parse()
     |> Enum.map(&pattern_value/1)
+    |> Enum.map(fn
+      {:horizontal, i} -> i * 100
+      {:vertical, i} -> i
+    end)
     |> Enum.sum()
   end
 
-  def pattern_value(pattern) do
-    case find_split(pattern) do
-      {_, i} ->
-        i * 100
+  def pattern_value(pattern, skip_index \\ nil) do
+    [:horizontal, :vertical]
+    |> Stream.map(fn dir ->
+      case skip_index do
+        {^dir, i} ->
+          {dir, find_split(pattern, dir, i)}
 
-      nil ->
-        pattern =
-          pattern
-          |> List.zip()
-          |> Enum.map(&Tuple.to_list/1)
-
-        case find_split(pattern) do
-          {_, i} ->
-            i
-
-          nil ->
-            raise "could not find mirror"
-        end
-    end
+        _ ->
+          {dir, find_split(pattern, dir, nil)}
+      end
+    end)
+    |> Enum.find(&(&1 |> elem(1) != nil))
   end
 
-  def find_split(pattern) do
+  def find_split(pattern, :vertical, skip_index) do
+    pattern =
+      pattern
+      |> List.zip()
+      |> Enum.map(&Tuple.to_list/1)
+
+    find_split(pattern, :horizontal, skip_index)
+  end
+
+  def find_split(pattern, :horizontal, skip_index) do
     pattern
     |> Stream.chunk_every(2, 1, :discard)
     |> Stream.with_index(1)
     |> Stream.filter(fn {[a, b], _i} -> a == b end)
     |> Enum.find(fn {_, i} ->
-      {a, b} = pattern |> Enum.split(i)
+      if i == skip_index do
+        false
+      else
+        {a, b} = pattern |> Enum.split(i)
 
-      a_len = length(a)
-      b_len = length(b)
+        a_len = length(a)
+        b_len = length(b)
 
-      cond do
-        a_len > b_len ->
-          Enum.reverse(a) |> Enum.split(b_len) |> elem(0) == b
+        cond do
+          a_len > b_len ->
+            Enum.reverse(a) |> Enum.split(b_len) |> elem(0) == b
 
-        a_len < b_len ->
-          a == Enum.split(b, a_len) |> elem(0) |> Enum.reverse()
+          a_len < b_len ->
+            a == Enum.split(b, a_len) |> elem(0) |> Enum.reverse()
 
-        true ->
-          a == Enum.reverse(b)
+          true ->
+            a == Enum.reverse(b)
+        end
       end
     end)
+    |> case do
+      {_, i} -> i
+      nil -> nil
+    end
   end
 
   def part2(input) do
     input
     |> parse()
+    |> Enum.map(fn pattern ->
+      rows = length(pattern)
+      cols = length(hd(pattern))
+
+      {dir, i} = pattern_value(pattern)
+
+      for(r <- 0..rows, c <- 0..cols, do: {r, c})
+      # smudge
+      |> Stream.map(fn {r, c} -> smudge(pattern, r, c) end)
+      |> Stream.map(fn pattern ->
+        pattern_value(pattern, {dir, i})
+      end)
+      |> Enum.find(&(&1 != nil))
+    end)
+    |> Enum.map(fn
+      {:horizontal, i} -> i * 100
+      {:vertical, i} -> i
+    end)
+    |> Enum.sum()
+  end
+
+  def smudge(pattern, r, c) do
+    List.update_at(pattern, r, fn row ->
+      List.update_at(row, c, fn
+        "#" -> "."
+        "." -> "#"
+      end)
+    end)
   end
 end
 ```
