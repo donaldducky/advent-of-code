@@ -1,0 +1,134 @@
+# Advent of Code 2023
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 13
+
+```elixir
+input =
+  "https://adventofcode.com/2023/day/13/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+#.##..##.
+..#.##.#.
+##......#
+##......#
+..#.##.#.
+..##..##.
+#.#.##.#.
+
+#...##..#
+#....#..#
+..##..###
+#####.##.
+#####.##.
+..##..###
+#....#..#
+"""
+```
+
+```elixir
+defmodule A do
+  def parse(input) do
+    input
+    |> String.split("\n\n", trim: true)
+    |> Enum.map(fn group ->
+      String.split(group, "\n", trim: true)
+      |> Enum.map(fn line -> String.split(line, "", trim: true) end)
+    end)
+  end
+
+  def part1(input) do
+    input
+    |> parse()
+    |> Enum.map(&pattern_value/1)
+    |> Enum.sum()
+  end
+
+  def pattern_value(pattern) do
+    case find_split(pattern) do
+      {_, i} ->
+        i * 100
+
+      nil ->
+        pattern =
+          pattern
+          |> List.zip()
+          |> Enum.map(&Tuple.to_list/1)
+
+        case find_split(pattern) do
+          {_, i} ->
+            i
+
+          nil ->
+            raise "could not find mirror"
+        end
+    end
+  end
+
+  def find_split(pattern) do
+    pattern
+    |> Stream.chunk_every(2, 1, :discard)
+    |> Stream.with_index(1)
+    |> Stream.filter(fn {[a, b], _i} -> a == b end)
+    |> Enum.find(fn {_, i} ->
+      {a, b} = pattern |> Enum.split(i)
+
+      a_len = length(a)
+      b_len = length(b)
+
+      cond do
+        a_len > b_len ->
+          Enum.reverse(a) |> Enum.split(b_len) |> elem(0) == b
+
+        a_len < b_len ->
+          a == Enum.split(b, a_len) |> elem(0) |> Enum.reverse()
+
+        true ->
+          a == Enum.reverse(b)
+      end
+    end)
+  end
+
+  def part2(input) do
+    input
+    |> parse()
+  end
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+sample
+|> A.part1()
+```
+
+```elixir
+input
+|> A.part1()
+```
+
+## Part 2
+
+```elixir
+sample
+|> A.part2()
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> A.part2()
+```
