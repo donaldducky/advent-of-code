@@ -1,0 +1,181 @@
+# Advent of Code 2023
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 16
+
+```elixir
+input =
+  "https://adventofcode.com/2023/day/16/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+.|...\\....
+|.-.\\.....
+.....|-...
+........|.
+..........
+.........\\
+..../.\\\\..
+.-.-/..|..
+.|....-|.\\
+..//.|....
+"""
+```
+
+```elixir
+sample
+|> String.split("\n", trim: true)
+|> Enum.map(&String.length(&1))
+|> IO.inspect(charlists: :as_lists)
+```
+
+```elixir
+defmodule A do
+  def parse(input) do
+    input
+    |> String.split("\n", trim: true)
+  end
+
+  def part1(input) do
+    input
+    |> parse()
+    |> grid()
+    |> beam({-1, 0}, {1, 0})
+    |> MapSet.size()
+  end
+
+  def part2(input) do
+    input
+    |> parse()
+    |> then(fn lines ->
+      rows = lines |> length()
+      cols = lines |> hd() |> String.length()
+      grid = grid(lines)
+
+      [
+        {0..(cols - 1), -1..-1, {0, 1}},
+        {0..(cols - 1), rows..rows, {0, -1}},
+        {-1..-1, 0..(rows - 1), {1, 0}},
+        {cols..cols, 0..(rows - 1), {-1, 0}}
+      ]
+      |> Enum.flat_map(fn {xs, ys, d} ->
+        for x <- xs, y <- ys, do: {{x, y}, d}
+      end)
+      |> Enum.map(fn {v, d} ->
+        beam(grid, v, d)
+        |> MapSet.size()
+      end)
+    end)
+    |> Enum.max()
+  end
+
+  def grid(lines) do
+    for {row, y} <- Enum.with_index(lines),
+        {c, x} <- String.split(row, "", trim: true) |> Enum.with_index(),
+        into: %{},
+        do: {{x, y}, c}
+  end
+
+  def beam(grid, v, d) do
+    open = [{v, d}]
+    energized = MapSet.new()
+    visited = MapSet.new()
+
+    Stream.iterate(0, &(&1 + 1))
+    |> Enum.reduce_while({open, energized, visited}, fn _, {open, energized, visited} ->
+      case open do
+        [] ->
+          {:halt, energized}
+
+        [{{x, y}, {dx, dy}} = current | rest] ->
+          to = {x + dx, y + dy}
+
+          if MapSet.member?(visited, current) do
+            {:cont, {rest, energized, visited}}
+          else
+            case Map.get(grid, to) do
+              nil ->
+                {:cont, {rest, energized, visited}}
+
+              c ->
+                energized = MapSet.put(energized, to)
+                visited = MapSet.put(visited, current)
+
+                open =
+                  next_dirs(c, {dx, dy})
+                  |> Enum.map(&{{x + dx, y + dy}, &1})
+                  |> Enum.concat(rest)
+
+                {:cont, {open, energized, visited}}
+            end
+          end
+      end
+    end)
+  end
+
+  def next_dirs(".", d), do: [d]
+
+  def next_dirs("|", {dx, dy}) do
+    case {dx, dy} do
+      {_, 0} -> [{0, 1}, {0, -1}]
+      {0, _} -> [{dx, dy}]
+    end
+  end
+
+  def next_dirs("-", {dx, dy}) do
+    case {dx, dy} do
+      {_, 0} -> [{dx, dy}]
+      {0, _} -> [{1, 0}, {-1, 0}]
+    end
+  end
+
+  def next_dirs("/", {dx, dy}) do
+    case {dx, dy} do
+      {1, 0} -> [{0, -1}]
+      {-1, 0} -> [{0, 1}]
+      {0, 1} -> [{-1, 0}]
+      {0, -1} -> [{1, 0}]
+    end
+  end
+
+  def next_dirs("\\", {dx, dy}) do
+    case {dx, dy} do
+      {1, 0} -> [{0, 1}]
+      {-1, 0} -> [{0, -1}]
+      {0, 1} -> [{1, 0}]
+      {0, -1} -> [{-1, 0}]
+    end
+  end
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+sample
+|> A.part1()
+```
+
+```elixir
+input
+|> A.part1()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> A.part2()
+```
