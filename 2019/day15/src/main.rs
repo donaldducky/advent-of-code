@@ -1,7 +1,7 @@
 extern crate clap;
 extern crate termion;
 
-use clap::{App, Arg};
+use clap::{Arg, Command};
 use intcode;
 use intcode::Cmd;
 use intcode::CPU;
@@ -68,7 +68,7 @@ struct Point {
 
 impl Point {
     fn new(x: i128, y: i128) -> Point {
-        Point { x: x, y: y }
+        Point { x, y }
     }
 
     fn expand(&self) -> Vec<(Point, Direction)> {
@@ -182,45 +182,49 @@ const APP_NAME: &'static str = env!("CARGO_PKG_NAME");
 const APP_VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
 fn main() {
-    let matches = App::new(APP_NAME)
+    let app_name = format!("Advent of Code: {}", APP_NAME);
+    let matches = Command::new(APP_NAME)
         .version(APP_VERSION)
         .author(env!("CARGO_PKG_AUTHORS"))
-        .about(&*format!("Advent of Code: {}", APP_NAME))
+        .about(app_name)
         .arg(
-            Arg::with_name("input-file")
+            Arg::new("input-file")
                 .help("input file to run against")
                 .index(1)
                 .default_value("input.txt"),
         )
         .arg(
-            Arg::with_name("part-1")
+            Arg::new("part-1")
                 .help("Run part 1 only")
-                .short("1")
+                .short('1')
                 .long("1")
+                .action(clap::ArgAction::SetTrue)
                 .conflicts_with("part-2"),
         )
         .arg(
-            Arg::with_name("part-2")
+            Arg::new("part-2")
                 .help("Run part 2 only")
-                .short("2")
+                .short('2')
                 .long("2")
+                .action(clap::ArgAction::SetTrue)
                 .conflicts_with("part-1"),
         )
         .arg(
-            Arg::with_name("animate")
+            Arg::new("animate")
                 .help("Animate steps")
-                .long("animate"),
+                .long("animate")
+                .action(clap::ArgAction::SetTrue),
         )
         .get_matches();
 
-    let filename = matches.value_of("input-file").unwrap();
+    let filename = matches.get_one::<String>("input-file").unwrap();
     let program = intcode::read_program(filename);
 
-    let do_animate = matches.is_present("animate");
+    let do_animate = matches.get_flag("animate");
 
-    if matches.is_present("part-1") {
+    if matches.get_flag("part-1") {
         println!("{}", part1(program.clone()));
-    } else if matches.is_present("part-2") {
+    } else if matches.get_flag("part-2") {
         println!("{}", part2(program.clone(), do_animate));
     } else {
         println!("Part 1: {}", part1(program.clone()));
@@ -268,10 +272,10 @@ fn part2(program: Vec<i128>, do_animate: bool) -> usize {
     let drawing_data = DrawingData {
         oxygen_map: &mut HashSet::new(),
         new_items: &mut HashSet::new(),
-        min_x: min_x,
-        max_x: max_x,
-        min_y: min_y,
-        max_y: max_y,
+        min_x,
+        max_x,
+        min_y,
+        max_y,
     };
 
     if do_animate {
