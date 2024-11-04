@@ -26,118 +26,146 @@ sample = """
 """
 ```
 
-```elixir
-defmodule A do
-  def parse(input) do
-    input
-    |> String.split("\n", trim: true)
-    |> Enum.map(&String.split(&1, " ", trim: true))
-    |> Enum.map(fn [a, b] ->
-      [a, String.split(b, ",", trim: true) |> Enum.map(&String.to_integer/1)]
-    end)
-  end
+## Solution
 
+```elixir
+defmodule Day12 do
   def part1(input) do
+    setup_memo()
+
     input
     |> parse()
-    |> Enum.map(fn [s, criteria] ->
-      s
-      |> permutations()
-      |> select(criteria)
-      |> Enum.count()
-    end)
+    |> Enum.map(&solve/1)
     |> Enum.sum()
   end
 
   def part2(input) do
+    setup_memo()
+
     input
     |> parse()
-    |> Enum.map(fn [s, criteria] ->
-      s
-      |> permutations()
-      |> select(criteria)
-      |> Enum.count()
-      |> then(fn n -> n ** 5 end)
-    end)
+    |> unfold(5)
+    |> Enum.map(&solve/1)
     |> Enum.sum()
   end
 
-  def permutations(s) do
-    s
-    |> String.split("", trim: true)
-    |> Enum.reduce([""], fn c, acc ->
-      case c do
-        "?" -> [".", "#"]
-        _ -> [c]
-      end
-      |> then(fn cs ->
-        Enum.flat_map(cs, fn c ->
-          Enum.map(acc, fn s -> s <> c end)
-        end)
-      end)
+  defp parse(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(&String.split(&1, " "))
+    |> Enum.map(fn [springs, groups] ->
+      {springs, groups |> String.split(",") |> Enum.map(&String.to_integer/1)}
     end)
   end
 
-  def select(ss, criteria) do
-    r =
-      criteria
-      |> Enum.map(fn n -> "[#]{#{n}}" end)
-      |> Enum.intersperse("[\.]+")
-      |> Enum.join()
-      |> then(fn rs ->
-        "^[\.]*" <> rs <> "[\.]*$"
-      end)
-      |> Regex.compile!()
+  defp unfold(rows, n) do
+    rows
+    |> Enum.map(fn {springs, groups} ->
+      springs =
+        springs
+        |> List.duplicate(n)
+        |> Enum.intersperse("?")
+        |> Enum.join()
 
-    Enum.filter(ss, fn s -> Regex.match?(r, s) end)
+      groups =
+        groups
+        |> List.duplicate(n)
+        |> List.flatten()
+
+      {springs, groups}
+    end)
+  end
+
+  defp setup_memo() do
+    if :ets.whereis(:memo) != :undefined do
+      :ets.delete(:memo)
+    end
+
+    :ets.new(:memo, [:set, :protected, :named_table])
+  end
+
+  defp memoize(key, value) do
+    :ets.insert(:memo, {key, value})
+  end
+
+  defp has_memo?(key) do
+    :ets.member(:memo, key)
+  end
+
+  defp get_memo(key) do
+    [{_, value}] = :ets.lookup(:memo, key)
+    value
+  end
+
+  def solve({springs, groups}) do
+    solve(springs, groups)
+  end
+
+  def solve(springs, [] = _groups) do
+    # if there are no groups left and no more broken springs we're good
+    if String.contains?(springs, "#"), do: 0, else: 1
+  end
+
+  def solve(springs, groups) do
+    cond do
+      String.length(springs) < Enum.sum(groups) + length(groups) - 1 ->
+        # not enough springs to match groups
+        0
+
+      has_memo?({springs, groups}) ->
+        get_memo({springs, groups})
+
+      String.first(springs) == "." ->
+        # consume operational springs
+        # we want to find the next # or ? to denote a group
+        solve(String.trim_leading(springs, "."), groups)
+
+      true ->
+        total = 0
+
+        n = hd(groups)
+        re = ~r/^[#?]{#{n}}($|[.?])/
+
+        total =
+          if String.match?(springs, re) do
+            # we matched a group, continue matching groups
+            total + solve(String.replace(springs, re, ""), tl(groups))
+          else
+            total
+          end
+
+        total =
+          if String.first(springs) != "#" do
+            # consume non broken spring and try to find more matches
+            total + solve(String.split_at(springs, 1) |> elem(1), groups)
+          else
+            total
+          end
+
+        memoize({springs, groups}, total)
+
+        total
+    end
   end
 end
 ```
 
-## Part 1
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+Day12.part1(sample)
+```
 
 <!-- livebook:{"reevaluate_automatically":true} -->
 
 ```elixir
-input
-|> A.part1()
+Day12.part1(input)
 ```
 
 ```elixir
-r =
-  Regex.compile!(
-    ["^[\.]*", "[#]{3}", "[.]+", "[#]{2}", "[.]+", "[#]{1}", "[\.]*$"]
-    |> Enum.join()
-  )
+Day12.part2(sample)
 ```
 
 ```elixir
-"?###????????"
-|> String.split("", trim: true)
-|> Enum.reduce([""], fn c, acc ->
-  case c do
-    "?" -> [".", "#"]
-    _ -> [c]
-  end
-  |> then(fn cs ->
-    Enum.flat_map(cs, fn c ->
-      Enum.map(acc, fn s -> s <> c end)
-    end)
-  end)
-end)
-|> Enum.filter(&Regex.match?(r, &1))
-|> Enum.count()
-```
-
-```elixir
-Regex.match?(r, "#.#.###")
-```
-
-## Part 2
-
-<!-- livebook:{"reevaluate_automatically":true} -->
-
-```elixir
-sample
-|> A.part2()
+Day12.part2(input)
 ```
