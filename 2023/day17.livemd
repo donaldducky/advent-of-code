@@ -34,6 +34,16 @@ sample = """
 """
 ```
 
+```elixir
+sample2 = """
+111111111111
+999999999991
+999999999991
+999999999991
+999999999991
+"""
+```
+
 ## Section
 
 ```elixir
@@ -61,27 +71,24 @@ defmodule Day17 do
     }
   end
 
-  def expand(pq, seen, grid) do
+  def expand(pq, seen, grid, path_fun) do
     {{:value, node}, pq} = PriorityQueue.pop(pq)
     # %{x: x, y: y, dir: {dir, n}} = node
-    {cost, {x, y}, {dir, n}} = node
+    {cost, {x, y}, {dir, n}, path} = node
 
-    [
-      {turn_left(dir), 1},
-      {turn_right(dir), 1}
-    ]
-    |> then(&if n < 3, do: [{dir, n + 1} | &1], else: &1)
+    path_fun.(dir, n)
     |> Enum.map(fn
       {:right, _} = dir -> {{x + 1, y}, dir}
       {:down, _} = dir -> {{x, y + 1}, dir}
-      {:up, _} = dir ->  {{x, y - 1}, dir}
+      {:up, _} = dir -> {{x, y - 1}, dir}
       {:left, _} = dir -> {{x - 1, y}, dir}
     end)
     # out of bounds check
     |> Enum.reject(&(!Map.has_key?(grid.data, elem(&1, 0))))
     |> Enum.reduce({pq, seen}, fn {coord, dir}, {pq, seen} ->
       new_cost = cost + grid.data[coord]
-      node = {new_cost, coord, dir}
+      node = {new_cost, coord, dir, [{x, y} | path]}
+
       if MapSet.member?(seen, {coord, dir}) do
         {pq, seen}
       else
@@ -93,8 +100,30 @@ defmodule Day17 do
     end)
   end
 
-  def loss(grid, pos) do
-    grid.data[pos]
+  defp paths(dir, n) when n < 3 do
+    [
+      {turn_left(dir), 1},
+      {turn_right(dir), 1},
+      {dir, n + 1}
+    ]
+  end
+
+  defp paths(dir, _n) do
+    [
+      {turn_left(dir), 1},
+      {turn_right(dir), 1}
+    ]
+  end
+
+  defp ultra_paths(dir, n) when n < 4, do: [{dir, n + 1}]
+  defp ultra_paths(dir, 10), do: [{turn_left(dir), 1}, {turn_right(dir), 1}]
+
+  defp ultra_paths(dir, n) do
+    [
+      {turn_left(dir), 1},
+      {turn_right(dir), 1},
+      {dir, n + 1}
+    ]
   end
 
   def turn_left(dir) do
@@ -105,41 +134,71 @@ defmodule Day17 do
     %{left: :up, down: :left, right: :down, up: :right}[dir]
   end
 
-  def search(pq, dest, grid, seen) do
+  def search(pq, dest, grid, seen, path_fun, part2? \\ false, draw? \\ false) do
     Stream.iterate(1, &(&1 + 1))
     |> Enum.reduce_while({pq, seen}, fn _, {pq, seen} ->
       {:value, node} = PriorityQueue.peek(pq)
-      {cost, coord, _} = node
+      {cost, coord, {_dir, n}, path} = node
 
       if coord == dest do
-        {:halt, cost}
+        if part2? && n < 4 do
+          {:cont, expand(pq, seen, grid, path_fun)}
+        else
+          if draw? do
+            grid2 =
+              [coord | tl(path |> Enum.reverse())]
+              |> Enum.reduce(grid.data, fn p, acc -> Map.put(acc, p, " ") end)
+
+            for(y <- 0..(grid.rows - 1), x <- 0..(grid.cols - 1), do: grid2[{x, y}])
+            |> Enum.chunk_every(grid.cols)
+            |> Enum.map(&Enum.join/1)
+            |> Enum.join("\n")
+            |> IO.puts()
+
+            [coord | tl(Enum.reverse(path))]
+            |> Enum.map(&grid.data[&1])
+            |> Enum.sum()
+            |> IO.inspect()
+          end
+
+          {:halt, cost}
+        end
       else
-        {:cont, expand(pq, seen, grid)}
+        {:cont, expand(pq, seen, grid, path_fun)}
       end
     end)
   end
 
   def part1(input) do
     grid = parse(input)
-    pq = PriorityQueue.new()
     seen = MapSet.new()
 
     start = {0, 0}
     dest = {grid.cols - 1, grid.rows - 1}
 
-    to_visit = [
-      # {cost, {x, y}, direction}
-      {0, start, {:right, 1}},
-      {0, start, {:down, 1}}
-    ]
-
+    # {cost, {x, y}, direction}
     pq =
-      to_visit
-      |> Enum.reduce(pq, fn {cost, _coord, _dir} = node, pq ->
-        PriorityQueue.push(pq, node, cost)
-      end)
+      PriorityQueue.new()
+      |> PriorityQueue.push({0, start, {:right, 0}, []}, 0)
+      |> PriorityQueue.push({0, start, {:down, 0}, []}, 0)
 
-    search(pq, dest, grid, seen)
+    search(pq, dest, grid, seen, &paths/2)
+  end
+
+  def part2(input, draw? \\ false) do
+    grid = parse(input)
+    seen = MapSet.new()
+
+    start = {0, 0}
+    dest = {grid.cols - 1, grid.rows - 1}
+
+    # {cost, {x, y}, direction}
+    pq =
+      PriorityQueue.new()
+      |> PriorityQueue.push({0, start, {:right, 0}, []}, 0)
+      |> PriorityQueue.push({0, start, {:down, 0}, []}, 0)
+
+    search(pq, dest, grid, seen, &ultra_paths/2, true, draw?)
   end
 end
 ```
@@ -148,4 +207,18 @@ end
 
 ```elixir
 Day17.part1(input)
+```
+
+```elixir
+Day17.part2(sample)
+```
+
+```elixir
+Day17.part2(sample2)
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+Day17.part2(input, true)
 ```
