@@ -1,0 +1,132 @@
+# Advent of Code 2023
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 18
+
+```elixir
+input =
+  "https://adventofcode.com/2023/day/18/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+R 6 (#70c710)
+D 5 (#0dc571)
+L 2 (#5713f0)
+D 2 (#d2c081)
+R 2 (#59c680)
+D 2 (#411b91)
+L 5 (#8ceee2)
+U 2 (#caa173)
+L 1 (#1b58a2)
+U 2 (#caa171)
+R 2 (#7807d2)
+U 3 (#a77fa3)
+L 2 (#015232)
+U 2 (#7a21e3)
+"""
+```
+
+```elixir
+defmodule A do
+  def parse(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(&String.split(&1, " "))
+    |> Enum.map(fn [dir, n, c] ->
+      {dir, String.to_integer(n), c}
+    end)
+  end
+
+  defp build_grid(instructions) do
+    instructions
+    |> Enum.reduce({MapSet.new(), {0, 0}}, fn {dir, n, _}, {grid, {x, y}} ->
+      0..(n - 1)
+      |> Enum.reduce({grid, {x, y}}, fn _n, {grid, {x, y}} ->
+        {dx, dy} =
+          case dir do
+            "R" -> {1, 0}
+            "L" -> {-1, 0}
+            "D" -> {0, 1}
+            "U" -> {0, -1}
+          end
+
+        x2 = x + dx
+        y2 = y + dy
+
+        grid = MapSet.put(grid, {x2, y2})
+
+        {grid, {x2, y2}}
+      end)
+    end)
+    |> elem(0)
+  end
+
+  defp flood_fill(grid) do
+    # cells = MapSet.to_list(grid)
+    # xs = cells |> Enum.map(& elem(&1, 0))
+    # ys = cells |> Enum.map(& elem(&1, 1))
+
+    # {min_x, max_x} = Enum.min_max(xs)
+    # {min_y, max_y} = Enum.min_max(ys)
+
+    # {{min_x, max_x}, {min_y, max_y}}
+
+    # let's start somewhere we know is good
+
+    start = {5, 2} # TODO find a good way to detect if we're in the lagoon
+    to_visit = [start]
+    1
+    |> Stream.iterate(& &1 + 1)
+    |> Enum.reduce_while({grid, to_visit}, fn _i, {grid, open} ->
+      cond do
+        open == [] -> {:halt, grid}
+        MapSet.member?(grid, hd(open)) -> {:cont, {grid, tl(open)}}
+        true ->
+          {x, y} = pos = hd(open)
+          grid = MapSet.put(grid, pos)
+          to_explore = 
+            [{1, 0}, {-1, 0}, {0, 1}, {0, -1}]
+            |> Enum.map(fn {dx, dy} -> {x + dx, y + dy} end)
+          {:cont, {grid, tl(open) ++ to_explore}}
+      end
+    end)
+  end
+
+  def part1(input) do
+    input
+    |> parse()
+    |> build_grid()
+    |> flood_fill()
+    |> MapSet.size()
+  end
+
+  def part2(input) do
+    input
+    |> parse()
+  end
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> A.part1()
+```
+
+## Part 2
+
+```elixir
+input
+|> A.part2()
+```
