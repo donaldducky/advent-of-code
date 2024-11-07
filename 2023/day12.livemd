@@ -118,7 +118,7 @@ defmodule Day12 do
     :ets.lookup(:memo_stats, :add_memo) |> hd() |> elem(1) |> IO.inspect(label: "cache entries")
     hits = :ets.lookup(:memo_stats, :get_memo) |> hd() |> elem(1) |> IO.inspect(label: "cache hits")
     misses = :ets.lookup(:memo_stats, :miss) |> hd() |> elem(1) |> IO.inspect(label: "cache misses")
-    (hits / misses) |> Float.round() |> IO.inspect(label: "hit rate")
+    (hits / misses) |> Float.round(3) |> IO.inspect(label: "hit rate")
     output
   end
 
