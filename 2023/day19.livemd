@@ -86,7 +86,10 @@ defmodule A do
 
   def sort_part(_p, _workflows, ["A"]), do: :accept
   def sort_part(_p, _workflows, ["R"]), do: :reject
-  def sort_part(p, workflows, [workflow_id]), do: sort_part(p, workflows, Map.fetch!(workflows, workflow_id))
+
+  def sort_part(p, workflows, [workflow_id]),
+    do: sort_part(p, workflows, Map.fetch!(workflows, workflow_id))
+
   def sort_part(p, workflows, [rule | rules]) do
     case rule do
       {:lt, k, n, r} ->
@@ -95,6 +98,7 @@ defmodule A do
         else
           sort_part(p, workflows, rules)
         end
+
       {:gt, k, n, r} ->
         if p[k] > n do
           sort_part(p, workflows, [r])
@@ -102,6 +106,33 @@ defmodule A do
           sort_part(p, workflows, rules)
         end
     end
+  end
+
+  defp distinct_ratings(_workflows, rating, ["A"]), do: [rating]
+  defp distinct_ratings(_workflows, _rating, ["R"]), do: []
+
+  defp distinct_ratings(workflows, rating, [id]),
+    do: distinct_ratings(workflows, rating, workflows[id])
+
+  defp distinct_ratings(workflows, rating, [{:lt, k, n, r} | rules]) do
+    min..max//_ = rating[k]
+
+    {lower, upper} =
+      if min <= n && n <= max do
+        {min..(n - 1), n..max}
+      else
+        raise "boom"
+      end
+
+    distinct_ratings(workflows, Map.put(rating, k, lower), [r]) ++
+      distinct_ratings(workflows, Map.put(rating, k, upper), rules)
+  end
+
+  defp distinct_ratings(workflows, rating, [{:gt, k, n, r} | rules]) do
+    min..max//_ = rating[k]
+
+    distinct_ratings(workflows, Map.put(rating, k, (n + 1)..max), [r]) ++
+      distinct_ratings(workflows, Map.put(rating, k, min..n), rules)
   end
 
   def part1(input) do
@@ -113,15 +144,33 @@ defmodule A do
     |> Enum.map(fn part ->
       {sort_part(part, workflows, Map.fetch!(workflows, "in")), part}
     end)
-    |> Enum.group_by(& elem(&1, 0))
+    |> Enum.group_by(&elem(&1, 0))
     |> Map.get(:accept)
-    |> Enum.flat_map(& Map.values(elem(&1, 1)))
+    |> Enum.flat_map(&Map.values(elem(&1, 1)))
     |> Enum.sum()
   end
 
   def part2(input) do
-    input
-    |> parse()
+    {workflows, _} =
+      input
+      |> parse()
+
+    rating =
+      %{
+        "x" => 1..4000,
+        "m" => 1..4000,
+        "a" => 1..4000,
+        "s" => 1..4000
+      }
+
+    distinct_ratings(workflows, rating, ["in"])
+    |> Enum.map(fn ratings ->
+      ratings
+      |> Map.values()
+      |> Enum.map(&Range.size/1)
+      |> Enum.product()
+    end)
+    |> Enum.sum()
   end
 end
 ```
@@ -137,7 +186,24 @@ input
 
 ## Part 2
 
+<!-- livebook:{"reevaluate_automatically":true} -->
+
 ```elixir
 input
 |> A.part2()
+```
+
+```mermaid
+graph TD;
+  in-->in1{s < 1351?}
+  in1-->|x=1..4000\nm=1..4000\na=1..4000\ns=1..1350| px
+  in1-->|x=1..4000\nm=1..4000\na=1..4000\ns=1351..4000| qqz
+  px-->px1{a<2006?}
+  px1-->|x=1..4000\nm=1..4000\na=1..2005\ns=1..1350| qkq
+  px1-->|x=1..4000\nm=1..4000\na=2006..4000\ns=1..1350| px2{m<1801?}
+  px2-->|x=1..4000\nm=1..1800\na=2006..4000\ns=1..1350| hdj
+  px2-->reject
+  hdj-->hdj1{m>838?}
+  hdj1-->|x=1..4000\nm=839..1800\na=2006..4000\ns=1..1350| accept
+  hdj1-->pv
 ```
