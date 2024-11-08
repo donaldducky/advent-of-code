@@ -41,76 +41,95 @@ defmodule A do
     |> String.split("\n", trim: true)
     |> Enum.map(&String.split(&1, " "))
     |> Enum.map(fn [dir, n, c] ->
-      {dir, String.to_integer(n), c}
+      [_, n2, dir2] = Regex.run(~r/^\(#(.*)(.)\)$/, c)
+      {n2, ""} = Integer.parse(n2, 16)
+
+      dir2 =
+        case dir2 do
+          "0" -> "R"
+          "1" -> "D"
+          "2" -> "L"
+          "3" -> "U"
+        end
+
+      {dir, String.to_integer(n), {dir2, n2}}
     end)
   end
 
-  defp build_grid(instructions) do
+  # We need the vertices in anti-clockwise order for the shoelace algorithm.
+  # Building the list naturally in Elixir does that for us.
+  defp construct_vertices(instructions) do
     instructions
-    |> Enum.reduce({MapSet.new(), {0, 0}}, fn {dir, n, _}, {grid, {x, y}} ->
-      0..(n - 1)
-      |> Enum.reduce({grid, {x, y}}, fn _n, {grid, {x, y}} ->
-        {dx, dy} =
-          case dir do
-            "R" -> {1, 0}
-            "L" -> {-1, 0}
-            "D" -> {0, 1}
-            "U" -> {0, -1}
-          end
-
-        x2 = x + dx
-        y2 = y + dy
-
-        grid = MapSet.put(grid, {x2, y2})
-
-        {grid, {x2, y2}}
-      end)
+    |> Enum.map(fn
+      {"R", n} -> {n, 0}
+      {"L", n} -> {-n, 0}
+      {"D", n} -> {0, n}
+      {"U", n} -> {0, -n}
     end)
-    |> elem(0)
+    |> Enum.reduce({{0, 0}, []}, fn {dx, dy}, {{x, y}, vertices} ->
+      p = {x + dx, y + dy}
+      {p, [p | vertices]}
+    end)
+    |> elem(1)
   end
 
-  defp flood_fill(grid) do
-    # cells = MapSet.to_list(grid)
-    # xs = cells |> Enum.map(& elem(&1, 0))
-    # ys = cells |> Enum.map(& elem(&1, 1))
+  defp area(vertices) do
+    # we need this to wrap around
+    next_vertices = tl(vertices) ++ [hd(vertices)]
 
-    # {min_x, max_x} = Enum.min_max(xs)
-    # {min_y, max_y} = Enum.min_max(ys)
-
-    # {{min_x, max_x}, {min_y, max_y}}
-
-    # let's start somewhere we know is good
-
-    start = {5, 2} # TODO find a good way to detect if we're in the lagoon
-    to_visit = [start]
-    1
-    |> Stream.iterate(& &1 + 1)
-    |> Enum.reduce_while({grid, to_visit}, fn _i, {grid, open} ->
-      cond do
-        open == [] -> {:halt, grid}
-        MapSet.member?(grid, hd(open)) -> {:cont, {grid, tl(open)}}
-        true ->
-          {x, y} = pos = hd(open)
-          grid = MapSet.put(grid, pos)
-          to_explore = 
-            [{1, 0}, {-1, 0}, {0, 1}, {0, -1}]
-            |> Enum.map(fn {dx, dy} -> {x + dx, y + dy} end)
-          {:cont, {grid, tl(open) ++ to_explore}}
-      end
+    Enum.zip(vertices, next_vertices)
+    |> Enum.map(fn {{x1, y1}, {x2, y2}} ->
+      x1 * y2 - y1 * x2
     end)
+    |> Enum.sum()
+    |> abs()
+    |> div(2)
+  end
+
+  # https://www.101computing.net/the-shoelace-algorithm/
+  defp shoelace(instructions) do
+    instructions
+    |> construct_vertices()
+    |> area()
+  end
+
+  defp perimeter(instructions) do
+    instructions
+    |> Enum.map(fn {_d, n} -> n end)
+    |> Enum.sum()
+  end
+
+  # Pick's theorem  ->  A = i + b/2 - 1
+  # where: A = area, i = interior points, b = perimeter
+  # 
+  # to get the number of points, rearrange to solve for i:
+  # i = A - b/2 + 1
+  # then add b (interior points + boundary points)
+  # i + b = A + b/2 + 1
+  defp picks_theorem(instructions) do
+    area =
+      instructions
+      |> shoelace()
+
+    perimeter =
+      instructions
+      |> perimeter()
+
+    area + div(perimeter, 2) + 1
   end
 
   def part1(input) do
     input
     |> parse()
-    |> build_grid()
-    |> flood_fill()
-    |> MapSet.size()
+    |> then(&Enum.map(&1, fn {d, n, _c} -> {d, n} end))
+    |> picks_theorem()
   end
 
   def part2(input) do
     input
     |> parse()
+    |> then(&Enum.map(&1, fn {_d, _n, c} -> c end))
+    |> picks_theorem()
   end
 end
 ```
@@ -125,6 +144,8 @@ input
 ```
 
 ## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
 
 ```elixir
 input
