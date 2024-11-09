@@ -1,0 +1,242 @@
+# Advent of Code 2023
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 20
+
+```elixir
+input =
+  "https://adventofcode.com/2023/day/20/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+broadcaster -> a, b, c
+%a -> b
+%b -> c
+%c -> inv
+&inv -> a
+"""
+```
+
+```elixir
+sample2 = """
+broadcaster -> a
+%a -> inv, con
+&inv -> b
+%b -> con
+&con -> output
+"""
+```
+
+```elixir
+defmodule A do
+  def parse(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(&Regex.split(~r/( -> |, )/, &1))
+    |> Enum.map(fn [id | targets] ->
+      {id, type} =
+        case id do
+          "broadcaster" -> {id, :broadcaster}
+          "%" <> id -> {id, :flip_flop}
+          "&" <> id -> {id, :conjunction}
+        end
+
+      {id, %{type: type, targets: targets}}
+    end)
+    |> Enum.into(Map.new())
+    |> then(fn modules ->
+      caller_map =
+        modules
+        |> Enum.reduce(Map.new(), fn {id, %{targets: targets}}, caller_map ->
+          targets
+          |> Enum.reduce(caller_map, fn target, caller_map ->
+            Map.update(caller_map, target, [id], &[id | &1])
+          end)
+        end)
+
+      initial_state =
+        modules
+        |> Enum.reduce(Map.new(), fn {id, %{type: type}}, state ->
+          case type do
+            :broadcaster ->
+              state
+
+            :flip_flop ->
+              Map.put(state, id, :off)
+
+            :conjunction ->
+              initial =
+                Map.fetch!(caller_map, id)
+                |> Enum.map(&{&1, :low})
+                |> Enum.into(Map.new())
+
+              Map.put(state, id, initial)
+          end
+        end)
+
+      {modules, initial_state}
+    end)
+  end
+
+  defp push_button(modules, state, times),
+    do: push_button(modules, state, times, %{high: 0, low: 0}, Map.new())
+
+  defp push_button(_modules, _state, 0, total, _cache) do
+    total
+    |> Map.values()
+    |> Enum.product()
+  end
+
+  defp push_button(modules, state, times, total, cache) do
+    case Map.get(cache, state) do
+      {new_state, %{high: high, low: low}} ->
+        #IO.puts("cache hit")
+
+        total =
+          total
+          |> Map.update!(:high, &(&1 + high))
+          |> Map.update!(:low, &(&1 + low))
+
+        push_button(modules, new_state, times - 1, total, cache)
+
+      nil ->
+        pulses = [{"button", :low, "broadcaster"}]
+
+        {new_state, counts} =
+          1
+          |> Stream.iterate(&(&1 + 1))
+          |> Enum.reduce_while({pulses, state, %{high: 0, low: 0}}, fn i,
+                                                                       {pulses, state, counts} ->
+            case pulses do
+              [] ->
+                {:halt, {state, counts}}
+
+              [{from_id, pulse, to_id} | rest] ->
+                # {from_id, pulse, to_id} |> IO.inspect(label: "#{times} #{i} pulse")
+                counts = Map.update!(counts, pulse, &(&1 + 1))
+
+                # receiver
+                module = Map.get(modules, to_id, %{type: :unknown})
+
+                # on receive pulse
+                {new_pulses, state} =
+                  case module.type do
+                    :broadcaster ->
+                      new_pulses =
+                        module.targets
+                        |> Enum.map(&{to_id, pulse, &1})
+
+                      {new_pulses, state}
+
+                    :flip_flop ->
+                      case pulse do
+                        :high ->
+                          {[], state}
+
+                        :low ->
+                          flip_state = Map.get(state, to_id)
+
+                          {flip_state, pulse} =
+                            case flip_state do
+                              :off -> {:on, :high}
+                              :on -> {:off, :low}
+                            end
+
+                          state = Map.put(state, to_id, flip_state)
+
+                          new_pulses =
+                            module.targets
+                            |> Enum.map(&{to_id, pulse, &1})
+
+                          {new_pulses, state}
+                      end
+
+                    :conjunction ->
+                      state = update_in(state[to_id], &Map.put(&1, from_id, pulse))
+
+                      all_high? =
+                        state[to_id]
+                        |> Map.values()
+                        |> Enum.all?(&(&1 == :high))
+
+                      pulse = if all_high?, do: :low, else: :high
+
+                      new_pulses =
+                        module.targets
+                        |> Enum.map(&{to_id, pulse, &1})
+
+                      {new_pulses, state}
+
+                    :unknown ->
+                      {[], state}
+
+                    _ ->
+                      IO.puts("unhandled #{module.type}")
+                      {[], state}
+                  end
+
+                {:cont, {rest ++ new_pulses, state, counts}}
+            end
+          end)
+
+        cache = Map.put(cache, state, {new_state, counts})
+
+        total =
+          total
+          |> Map.update!(:high, &(&1 + counts.high))
+          |> Map.update!(:low, &(&1 + counts.low))
+
+        push_button(modules, new_state, times - 1, total, cache)
+    end
+  end
+
+  def part1(input) do
+    {modules, initial_state} =
+      input
+      |> parse()
+
+    push_button(modules, initial_state, 1000)
+  end
+
+  def part2(input) do
+    input
+    |> parse()
+  end
+end
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+sample
+|> A.part1()
+```
+
+```elixir
+sample2
+|> A.part1()
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> A.part1()
+```
+
+## Part 2
+
+```elixir
+input
+|> A.part2()
+```
