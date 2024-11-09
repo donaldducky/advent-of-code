@@ -35,6 +35,8 @@ broadcaster -> a
 """
 ```
 
+## Module
+
 ```elixir
 defmodule A do
   def parse(input) do
@@ -86,131 +88,89 @@ defmodule A do
     end)
   end
 
-  defp push_button(modules, state, times),
-    do: push_button(modules, state, times, %{high: 0, low: 0}, Map.new())
+  def push_button(state, modules) do
+    pulses = [{"button", :low, "broadcaster"}]
 
-  defp push_button(_modules, _state, 0, total, _cache) do
-    total
-    |> Map.values()
-    |> Enum.product()
-  end
+    1
+    |> Stream.iterate(&(&1 + 1))
+    |> Enum.reduce_while({pulses, state, %{high: 0, low: 0}}, fn _i, {pulses, state, counts} ->
+      case pulses do
+        [] ->
+          {:halt, {state, counts}}
 
-  defp push_button(modules, state, times, total, cache) do
-    case Map.get(cache, state) do
-      {new_state, %{high: high, low: low}} ->
-        #IO.puts("cache hit")
+        [{from_id, pulse, to_id} | rest] ->
+          # {from_id, pulse, to_id} |> IO.inspect(label: "#{times} #{i} pulse")
+          counts = Map.update!(counts, pulse, &(&1 + 1))
 
-        total =
-          total
-          |> Map.update!(:high, &(&1 + high))
-          |> Map.update!(:low, &(&1 + low))
+          # receiver
+          module = Map.get(modules, to_id, %{type: :unknown})
 
-        push_button(modules, new_state, times - 1, total, cache)
+          # on receive pulse
+          {new_pulses, state} =
+            case module.type do
+              :broadcaster ->
+                new_pulses =
+                  module.targets
+                  |> Enum.map(&{to_id, pulse, &1})
 
-      nil ->
-        pulses = [{"button", :low, "broadcaster"}]
+                {new_pulses, state}
 
-        {new_state, counts} =
-          1
-          |> Stream.iterate(&(&1 + 1))
-          |> Enum.reduce_while({pulses, state, %{high: 0, low: 0}}, fn i,
-                                                                       {pulses, state, counts} ->
-            case pulses do
-              [] ->
-                {:halt, {state, counts}}
+              :flip_flop ->
+                case pulse do
+                  :high ->
+                    {[], state}
 
-              [{from_id, pulse, to_id} | rest] ->
-                # {from_id, pulse, to_id} |> IO.inspect(label: "#{times} #{i} pulse")
-                counts = Map.update!(counts, pulse, &(&1 + 1))
+                  :low ->
+                    flip_state = Map.get(state, to_id)
 
-                # receiver
-                module = Map.get(modules, to_id, %{type: :unknown})
-
-                # on receive pulse
-                {new_pulses, state} =
-                  case module.type do
-                    :broadcaster ->
-                      new_pulses =
-                        module.targets
-                        |> Enum.map(&{to_id, pulse, &1})
-
-                      {new_pulses, state}
-
-                    :flip_flop ->
-                      case pulse do
-                        :high ->
-                          {[], state}
-
-                        :low ->
-                          flip_state = Map.get(state, to_id)
-
-                          {flip_state, pulse} =
-                            case flip_state do
-                              :off -> {:on, :high}
-                              :on -> {:off, :low}
-                            end
-
-                          state = Map.put(state, to_id, flip_state)
-
-                          new_pulses =
-                            module.targets
-                            |> Enum.map(&{to_id, pulse, &1})
-
-                          {new_pulses, state}
+                    {flip_state, pulse} =
+                      case flip_state do
+                        :off -> {:on, :high}
+                        :on -> {:off, :low}
                       end
 
-                    :conjunction ->
-                      state = update_in(state[to_id], &Map.put(&1, from_id, pulse))
+                    state = Map.put(state, to_id, flip_state)
 
-                      all_high? =
-                        state[to_id]
-                        |> Map.values()
-                        |> Enum.all?(&(&1 == :high))
+                    new_pulses =
+                      module.targets
+                      |> Enum.map(&{to_id, pulse, &1})
 
-                      pulse = if all_high?, do: :low, else: :high
+                    {new_pulses, state}
+                end
 
-                      new_pulses =
-                        module.targets
-                        |> Enum.map(&{to_id, pulse, &1})
+              :conjunction ->
+                state = update_in(state[to_id], &Map.put(&1, from_id, pulse))
 
-                      {new_pulses, state}
+                all_high? =
+                  state[to_id]
+                  |> Map.values()
+                  |> Enum.all?(&(&1 == :high))
 
-                    :unknown ->
-                      {[], state}
+                pulse = if all_high?, do: :low, else: :high
 
-                    _ ->
-                      IO.puts("unhandled #{module.type}")
-                      {[], state}
-                  end
+                new_pulses =
+                  module.targets
+                  |> Enum.map(&{to_id, pulse, &1})
 
-                {:cont, {rest ++ new_pulses, state, counts}}
+                {new_pulses, state}
+
+              :unknown ->
+                {[], state}
+
+              _ ->
+                IO.puts("unhandled #{module.type}")
+                {[], state}
             end
-          end)
 
-        cache = Map.put(cache, state, {new_state, counts})
-
-        total =
-          total
-          |> Map.update!(:high, &(&1 + counts.high))
-          |> Map.update!(:low, &(&1 + counts.low))
-
-        push_button(modules, new_state, times - 1, total, cache)
-    end
-  end
-
-  def part1(input) do
-    {modules, initial_state} =
-      input
-      |> parse()
-
-    push_button(modules, initial_state, 1000)
-  end
-
-  def part2(input) do
-    input
-    |> parse()
+          {:cont, {rest ++ new_pulses, state, counts}}
+      end
+    end)
   end
 end
+```
+
+```elixir
+import A
 ```
 
 ## Part 1
@@ -218,25 +178,33 @@ end
 <!-- livebook:{"reevaluate_automatically":true} -->
 
 ```elixir
-sample
-|> A.part1()
-```
-
-```elixir
-sample2
-|> A.part1()
-```
-
-<!-- livebook:{"reevaluate_automatically":true} -->
-
-```elixir
-input
-|> A.part1()
+[sample, sample2, input]
+|> Enum.map(fn input ->
+  input
+  |> parse()
+  |> then(fn {modules, initial_state} ->
+    1..1000
+    |> Enum.reduce({initial_state, {0, 0}}, fn _i, {state, {high, low}} ->
+      {state, counts} = push_button(state, modules)
+      {state, {high + counts.high, low + counts.low}}
+    end)
+    |> elem(1)
+    |> Tuple.to_list()
+    |> Enum.product()
+  end)
+end)
 ```
 
 ## Part 2
 
 ```elixir
-input
-|> A.part2()
+[
+  sample,
+  # sample2,
+  # input
+]
+|> Enum.map(fn input ->
+  input
+  |> parse()
+end)
 ```
