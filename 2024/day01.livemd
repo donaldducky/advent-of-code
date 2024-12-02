@@ -1,0 +1,79 @@
+# Advent of Code 2024
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 1
+
+```elixir
+input =
+  "https://adventofcode.com/2024/day/1/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+3   4
+4   3
+2   5
+1   3
+3   9
+3   3
+"""
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> String.split("\n", trim: true)
+|> Enum.map(&(String.split(&1, "   ") |> Enum.map(fn s -> String.to_integer(s) end)))
+|> Enum.reduce({[], []}, fn [a, b], {list_a, list_b} ->
+  {
+    [a | list_a],
+    [b | list_b]
+  }
+end)
+|> then(fn {a, b} ->
+  {Enum.sort(a), Enum.sort(b)}
+end)
+|> then(fn {a, b} ->
+  Enum.zip(a, b)
+end)
+|> Enum.map(fn {a, b} ->
+  abs(a - b)
+end)
+|> Enum.sum()
+|> dbg()
+```
+
+## Part 2
+
+```elixir
+input
+|> String.split("\n", trim: true)
+|> Enum.map(&(String.split(&1, "   ") |> Enum.map(fn s -> String.to_integer(s) end)))
+|> Enum.reduce({[], []}, fn [a, b], {list_a, list_b} ->
+  {
+    [a | list_a],
+    [b | list_b]
+  }
+end)
+|> then(fn {a, b} ->
+  {a, Enum.frequencies(b)}
+end)
+|> then(fn {a, b} ->
+  a
+  |> Enum.map(fn k ->
+    k * Map.get(b, k, 0)
+  end)
+end)
+|> Enum.sum()
+|> dbg()
+```
