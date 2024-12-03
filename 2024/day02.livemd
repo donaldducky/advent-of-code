@@ -36,14 +36,14 @@ defmodule Day2 do
 
   def safe?(list) do
     list
-    |> Enum.zip(tl(list))
-    |> Enum.map(fn {left, right} ->
+    |> Enum.chunk_every(2, 1, :discard)
+    |> Enum.map(fn [left, right] ->
       left - right
     end)
     |> then(fn diffs ->
       all_decreasing? = Enum.all?(diffs, &(&1 > 0))
       all_increasing? = Enum.all?(diffs, &(&1 < 0))
-      safe_levels? = Enum.all?(diffs, &(abs(&1) >= 1 && abs(&1) <= 3))
+      safe_levels? = Enum.all?(diffs, & abs(&1) in 1..3)
 
       (all_decreasing? || all_increasing?) && safe_levels?
     end)
