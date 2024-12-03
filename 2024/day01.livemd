@@ -37,12 +37,6 @@ defmodule Day1 do
       |> Enum.map(&String.to_integer/1)
     end)
   end
-
-  def transpose(list_of_lists) do
-    list_of_lists
-    |> List.zip()
-    |> Enum.map(&Tuple.to_list/1)
-  end
 end
 ```
 
@@ -55,11 +49,11 @@ import Day1
 ```elixir
 input
 |> parse()
-|> transpose()
-|> Enum.map(&Enum.sort/1)
-|> transpose()
-|> Enum.map(fn [a, b] -> abs(a-b) end)
-|> Enum.sum()
+|> Enum.zip_with(&Enum.sort/1)
+# |> Enum.zip()
+# |> Enum.map(fn {a, b} -> abs(a-b) end)
+# |> Enum.sum()
+|> Enum.zip_reduce(0, fn [a, b], sum -> sum + abs(a-b) end)
 ```
 
 ## Part 2
@@ -67,8 +61,7 @@ input
 ```elixir
 input
 |> parse()
-|> transpose()
-|> Enum.map(&Enum.frequencies/1)
+|> Enum.zip_with(&Enum.frequencies/1)
 |> then(fn [a, b] ->
   Enum.map(a, fn {k, v} -> k * v * Map.get(b, k, 0) end)
 end)
