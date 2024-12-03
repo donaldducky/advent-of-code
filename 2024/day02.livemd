@@ -77,7 +77,7 @@ input
   else
     0..(Enum.count(list) - 1)
     |> Enum.find(fn i ->
-      list |> List.pop_at(i) |> elem(1) |> safe?()
+      list |> List.delete_at(i) |> safe?()
     end)
   end
 end)
