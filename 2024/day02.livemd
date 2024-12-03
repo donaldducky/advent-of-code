@@ -1,0 +1,85 @@
+# Advent of Code 2024
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 2
+
+```elixir
+input =
+  "https://adventofcode.com/2024/day/2/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+7 6 4 2 1
+1 2 7 8 9
+9 7 6 2 1
+1 3 2 4 5
+8 6 4 4 1
+1 3 6 7 9
+"""
+```
+
+```elixir
+defmodule Day2 do
+  def parse(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(&(String.split(&1, " ") |> Enum.map(fn s -> String.to_integer(s) end)))
+  end
+
+  def safe?(list) do
+    list
+    |> Enum.zip(tl(list))
+    |> Enum.map(fn {left, right} ->
+      left - right
+    end)
+    |> then(fn diffs ->
+      all_decreasing? = Enum.all?(diffs, &(&1 > 0))
+      all_increasing? = Enum.all?(diffs, &(&1 < 0))
+      safe_levels? = Enum.all?(diffs, &(abs(&1) >= 1 && abs(&1) <= 3))
+
+      (all_decreasing? || all_increasing?) && safe_levels?
+    end)
+  end
+end
+```
+
+```elixir
+import Day2
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> parse()
+|> Enum.filter(&safe?/1)
+|> Enum.count()
+```
+
+## Part 2
+
+```elixir
+input
+|> parse()
+|> Enum.filter(fn list ->
+  if safe?(list) do
+    true
+  else
+    0..(Enum.count(list) - 1)
+    |> Enum.find(fn i ->
+      list |> List.pop_at(i) |> elem(1) |> safe?()
+    end)
+  end
+end)
+|> Enum.count()
+```
