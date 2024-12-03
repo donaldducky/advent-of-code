@@ -26,54 +26,51 @@ sample = """
 """
 ```
 
-## Part 1
+```elixir
+defmodule Day1 do
+  def parse(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(fn line ->
+      line
+      |> String.split("   ")
+      |> Enum.map(&String.to_integer/1)
+    end)
+  end
 
-<!-- livebook:{"reevaluate_automatically":true} -->
+  def transpose(list_of_lists) do
+    list_of_lists
+    |> List.zip()
+    |> Enum.map(&Tuple.to_list/1)
+  end
+end
+```
+
+```elixir
+import Day1
+```
+
+## Part 1
 
 ```elixir
 input
-|> String.split("\n", trim: true)
-|> Enum.map(&(String.split(&1, "   ") |> Enum.map(fn s -> String.to_integer(s) end)))
-|> Enum.reduce({[], []}, fn [a, b], {list_a, list_b} ->
-  {
-    [a | list_a],
-    [b | list_b]
-  }
-end)
-|> then(fn {a, b} ->
-  {Enum.sort(a), Enum.sort(b)}
-end)
-|> then(fn {a, b} ->
-  Enum.zip(a, b)
-end)
-|> Enum.map(fn {a, b} ->
-  abs(a - b)
-end)
+|> parse()
+|> transpose()
+|> Enum.map(&Enum.sort/1)
+|> transpose()
+|> Enum.map(fn [a, b] -> abs(a-b) end)
 |> Enum.sum()
-|> dbg()
 ```
 
 ## Part 2
 
 ```elixir
 input
-|> String.split("\n", trim: true)
-|> Enum.map(&(String.split(&1, "   ") |> Enum.map(fn s -> String.to_integer(s) end)))
-|> Enum.reduce({[], []}, fn [a, b], {list_a, list_b} ->
-  {
-    [a | list_a],
-    [b | list_b]
-  }
-end)
-|> then(fn {a, b} ->
-  {a, Enum.frequencies(b)}
-end)
-|> then(fn {a, b} ->
-  a
-  |> Enum.map(fn k ->
-    k * Map.get(b, k, 0)
-  end)
+|> parse()
+|> transpose()
+|> Enum.map(&Enum.frequencies/1)
+|> then(fn [a, b] ->
+  Enum.map(a, fn {k, v} -> k * v * Map.get(b, k, 0) end)
 end)
 |> Enum.sum()
-|> dbg()
 ```
