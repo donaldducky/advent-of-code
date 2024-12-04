@@ -1,0 +1,94 @@
+# Advent of Code 2024
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 3
+
+```elixir
+input =
+  "https://adventofcode.com/2024/day/3/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+xmul(2,4)%&mul[3,7]!@^do_not_mul(5,5)+mul(32,64]then(mul(11,8)mul(8,5))
+"""
+```
+
+```elixir
+defmodule Day3 do
+  def parse(input) do
+    input
+    |> String.trim()
+  end
+end
+```
+
+```elixir
+import Day3
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> parse()
+|> then(fn line ->
+  Regex.scan(~r/mul\(\d{1,3},\d{1,3}\)/, line)
+  |> Enum.map(fn [mul]->
+    [[_, a, b]] = Regex.scan(~r/(\d+),(\d+)/, mul)
+    [a, b]
+    |> Enum.map(&String.to_integer/1)
+    |> Enum.reduce(fn x, a -> x * a end)
+  end)
+  |> Enum.sum()
+end)
+```
+
+## Part 2
+
+```elixir
+sample2 = """
+xmul(2,4)&mul[3,7]!^don't()_mul(5,5)+mul(32,64](mul(11,8)undo()?mul(8,5))
+"""
+```
+
+```elixir
+input
+|> parse()
+|> then(fn line ->
+  Regex.scan(~r/(mul\(\d{1,3},\d{1,3}\)|don't\(\)|do\(\))/, line)
+  |> Enum.map(&hd/1)
+  |> Enum.reduce({0, :do}, fn ins, {sum, mode} ->
+    case ins do
+      "do()" ->
+        {sum, :do}
+
+      "don't()" ->
+        {sum, :dont}
+
+      ins ->
+        if mode == :dont do
+          {sum, mode}
+        else
+          [[_, a, b]] = Regex.scan(~r/(\d+),(\d+)/, ins)
+
+          product = [a, b]
+          |> Enum.map(&String.to_integer/1)
+          |> Enum.reduce(fn x, a -> x * a end)
+
+          {sum + product, mode}
+        end
+    end
+  end)
+  |> elem(0)
+end)
+```
