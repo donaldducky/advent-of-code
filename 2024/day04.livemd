@@ -33,18 +33,14 @@ MXMXAXMASX
 ```elixir
 defmodule Day4 do
   def parse(input) do
-    input
-    |> String.split("\n", trim: true)
-    |> Enum.map(&String.split(&1, "", trim: true))
-    |> Enum.with_index()
-    |> Enum.map(fn {cols, row} ->
-      Enum.with_index(cols)
-      |> Enum.map(fn {letter, col} ->
-        {{col, row}, letter}
-      end)
-    end)
-    |> List.flatten()
-    |> Enum.into(%{})
+    rows =
+      input
+      |> String.split("\n", trim: true)
+      |> Enum.map(&String.split(&1, "", trim: true))
+
+    for {cols, x} <- Enum.with_index(rows), {val, y} <- Enum.with_index(cols), into: %{} do
+      {{x, y}, val}
+    end
   end
 
   def find_coords(grid, letter) do
@@ -64,60 +60,34 @@ import Day4
 <!-- livebook:{"reevaluate_automatically":true} -->
 
 ```elixir
-input
-|> parse()
-|> then(fn grid ->
-  grid
-  |> find_coords("X")
-  |> Enum.map(fn coord ->
-    [
-      {1, 0},
-      {0, 1},
-      {-1, 0},
-      {0, -1},
-      {1, 1},
-      {-1, -1},
-      {1, -1},
-      {-1, 1}
-    ]
-    |> Enum.map(fn dir ->
-      {coord, dir}
-    end)
-  end)
-  |> List.flatten()
-  |> Enum.filter(fn {{x, y}, {dx, dy}} ->
-    ["M", "A", "S"]
-    |> Enum.reduce_while({x, y}, fn letter, {x, y} ->
-      coord = {x + dx, y + dy}
+grid =
+  input
+  |> parse()
 
-      case Map.get(grid, coord) do
-        ^letter ->
-          {:cont, coord}
-
-        _ ->
-          {:halt, false}
-      end
-    end)
-    |> is_tuple()
+grid
+|> find_coords("X")
+|> Enum.flat_map(fn {x, y} ->
+  [{1, 0}, {0, 1}, {-1, 0}, {0, -1}, {1, 1}, {-1, -1}, {1, -1}, {-1, 1}]
+  |> Enum.map(fn {dx, dy} ->
+    {x + dx, y + dy}
+    |> Stream.iterate(fn {x, y} -> {x + dx, y + dy} end)
+    |> Enum.take(3)
+    |> Enum.map_join(&Map.get(grid, &1))
   end)
-  |> Enum.count()
 end)
+|> Enum.count(&(&1 == "MAS"))
 ```
 
 ## Part 2
 
 ```elixir
-input
-|> parse()
-|> then(fn grid ->
-  grid
-  |> find_coords("A")
-  |> Enum.filter(fn {x, y} ->
-    [{-1, -1}, {1, 1}, {1, -1}, {-1, 1}]
-    |> Enum.map(fn {dx, dy} -> Map.get(grid, {x + dx, y + dy}) end)
-    |> Enum.chunk_every(2)
-    |> Enum.all?(&(&1 in [["M", "S"], ["S", "M"]]))
-  end)
-  |> Enum.count()
+grid
+|> find_coords("A")
+|> Enum.filter(fn {x, y} ->
+  [{-1, -1}, {1, 1}, {1, -1}, {-1, 1}]
+  |> Enum.map(fn {dx, dy} -> Map.get(grid, {x + dx, y + dy}) end)
+  |> Enum.chunk_every(2)
+  |> Enum.all?(&(&1 in [["M", "S"], ["S", "M"]]))
 end)
+|> Enum.count()
 ```
