@@ -42,12 +42,11 @@ import Day3
 input
 |> parse()
 |> then(fn line ->
-  Regex.scan(~r/mul\(\d{1,3},\d{1,3}\)/, line)
-  |> Enum.map(fn [mul]->
-    [[_, a, b]] = Regex.scan(~r/(\d+),(\d+)/, mul)
+  Regex.scan(~r/mul\((\d{1,3}),(\d{1,3})\)/, line, capture: :all_but_first)
+  |> Enum.map(fn [a, b] ->
     [a, b]
     |> Enum.map(&String.to_integer/1)
-    |> Enum.reduce(fn x, a -> x * a end)
+    |> Enum.product()
   end)
   |> Enum.sum()
 end)
@@ -65,29 +64,24 @@ xmul(2,4)&mul[3,7]!^don't()_mul(5,5)+mul(32,64](mul(11,8)undo()?mul(8,5))
 input
 |> parse()
 |> then(fn line ->
-  Regex.scan(~r/(mul\(\d{1,3},\d{1,3}\)|don't\(\)|do\(\))/, line)
-  |> Enum.map(&hd/1)
-  |> Enum.reduce({0, :do}, fn ins, {sum, mode} ->
-    case ins do
-      "do()" ->
-        {sum, :do}
+  Regex.scan(~r/(mul\((\d{1,3}),(\d{1,3})\)|don't\(\)|do\(\))/, line, capture: :all_but_first)
+  |> Enum.reduce({0, :do}, fn
+    ["do()"], {sum, :dont} ->
+      {sum, :do}
 
-      "don't()" ->
-        {sum, :dont}
+    ["don't()"], {sum, :do} ->
+      {sum, :dont}
 
-      ins ->
-        if mode == :dont do
-          {sum, mode}
-        else
-          [[_, a, b]] = Regex.scan(~r/(\d+),(\d+)/, ins)
+    [_, a, b], {sum, :do} ->
+      product =
+        [a, b]
+        |> Enum.map(&String.to_integer/1)
+        |> Enum.product()
 
-          product = [a, b]
-          |> Enum.map(&String.to_integer/1)
-          |> Enum.reduce(fn x, a -> x * a end)
+      {sum + product, :do}
 
-          {sum + product, mode}
-        end
-    end
+    _, acc ->
+      acc
   end)
   |> elem(0)
 end)
