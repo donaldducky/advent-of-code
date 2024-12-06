@@ -1,0 +1,127 @@
+# Advent of Code 2024
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 5
+
+```elixir
+input =
+  "https://adventofcode.com/2024/day/5/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+47|53
+97|13
+97|61
+97|47
+75|29
+61|13
+75|53
+29|13
+97|29
+53|29
+61|53
+97|53
+61|29
+47|13
+75|47
+97|75
+47|61
+75|61
+47|29
+75|13
+53|13
+
+75,47,61,53,29
+97,61,53,29,13
+75,29,13
+75,97,47,61,53
+61,13,29
+97,13,75,29,47
+"""
+```
+
+```elixir
+defmodule Day5 do
+  def parse(input) do
+    [rules, updates] =
+      input
+      |> String.split("\n\n", trim: true)
+      |> Enum.map(&String.split(&1, "\n", trim: true))
+
+    rules =
+      rules
+      |> Enum.map(&String.split(&1, "|"))
+      |> Enum.reduce(%{}, fn [left, right], rules ->
+        Map.update(rules, left, MapSet.new([right]), &MapSet.put(&1, right))
+      end)
+
+    updates = updates |> Enum.map(&String.split(&1, ","))
+
+    {rules, updates}
+  end
+
+  def safe?(rules, list) do
+    safe?(rules, tl(list), hd(list))
+  end
+
+  def safe?(_rules, [], _), do: true
+
+  def safe?(rules, [hd | rest] = list, cur) do
+    m =
+      Map.get(rules, cur, MapSet.new())
+      |> MapSet.intersection(MapSet.new(list))
+
+    if MapSet.size(m) == Enum.count(list) do
+      safe?(rules, rest, hd)
+    else
+      false
+    end
+  end
+end
+```
+
+```elixir
+import Day5
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+{rules, updates} =
+  input
+  |> parse()
+
+updates
+|> Enum.filter(& safe?(rules, &1))
+|> Enum.map(& &1 |> Enum.at(&1 |> Enum.count() |> div(2)) )
+|> Enum.map(&String.to_integer/1)
+|> Enum.sum()
+```
+
+## Part 2
+
+```elixir
+{rules, updates} =
+  input
+  |> parse()
+
+updates
+|> Enum.reject(&safe?(rules, &1))
+|> Enum.map(fn update ->
+  update
+  |> Enum.sort(&(Map.get(rules, &1, MapSet.new()) |> MapSet.member?(&2)))
+end)
+|> Enum.map(& &1 |> Enum.at(&1 |> Enum.count() |> div(2)) )
+|> Enum.map(&String.to_integer/1)
+|> Enum.sum()
+```
