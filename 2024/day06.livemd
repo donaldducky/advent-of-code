@@ -43,6 +43,16 @@ defmodule Day6 do
         into: %{},
         do: {{x, y}, val}
   end
+
+  def step({x, y}, :up), do: {x, y - 1}
+  def step({x, y}, :down), do: {x, y + 1}
+  def step({x, y}, :left), do: {x - 1, y}
+  def step({x, y}, :right), do: {x + 1, y}
+
+  def turn(:up), do: :right
+  def turn(:down), do: :left
+  def turn(:left), do: :up
+  def turn(:right), do: :down
 end
 ```
 
@@ -66,50 +76,30 @@ grid =
 visited = MapSet.new([start])
 grid = Map.put(grid, start, ".")
 
-Stream.iterate(1, &(&1 + 1))
-|> Enum.reduce_while({start, :up, visited}, fn _, {{x, y}, dir, visited} ->
-  {dx, dy} =
-    case dir do
-      :up -> {0, -1}
-      :down -> {0, 1}
-      :left -> {-1, 0}
-      :right -> {1, 0}
+guard_path =
+  Stream.iterate(1, &(&1 + 1))
+  |> Enum.reduce_while({start, :up, visited}, fn _, {pos, dir, visited} ->
+    next = step(pos, dir)
+
+    case Map.get(grid, next) do
+      "." ->
+        {:cont, {next, dir, MapSet.put(visited, next)}}
+
+      "#" ->
+        {:cont, {pos, turn(dir), visited}}
+
+      nil ->
+        {:halt, visited}
     end
+  end)
 
-  next = {x + dx, y + dy}
-
-  case Map.get(grid, next) do
-    "." ->
-      {:cont, {next, dir, MapSet.put(visited, next)}}
-
-    "#" ->
-      new_dir =
-        case dir do
-          :up -> :right
-          :down -> :left
-          :left -> :up
-          :right -> :down
-        end
-      {:cont, {{x,y}, new_dir, visited}}
-
-    nil ->
-      {:halt, visited}
-  end
-end)
+guard_path
 |> MapSet.size()
 ```
 
 ## Part 2
 
 ```elixir
-grid =
-  input
-  |> parse()
-
-{start, _} =
-  grid
-  |> Enum.find(fn {_k, v} -> v == "^" end)
-
 # positions_to_try =
 #   grid
 #   |> Enum.filter(fn {_k, v} -> v == "." end)
@@ -120,72 +110,26 @@ grid = Map.put(grid, start, ".")
 
 # check all positions the guard normally walks
 positions_to_try =
-  Stream.iterate(1, &(&1 + 1))
-  |> Enum.reduce_while({start, :up, visited}, fn _, {{x, y}, dir, visited} ->
-    {dx, dy} =
-      case dir do
-        :up -> {0, -1}
-        :down -> {0, 1}
-        :left -> {-1, 0}
-        :right -> {1, 0}
-      end
-
-    next = {x + dx, y + dy}
-
-    case Map.get(grid, next) do
-      "." ->
-        {:cont, {next, dir, MapSet.put(visited, next)}}
-
-      "#" ->
-        new_dir =
-          case dir do
-            :up -> :right
-            :down -> :left
-            :left -> :up
-            :right -> :down
-          end
-
-        {:cont, {{x, y}, new_dir, visited}}
-
-      nil ->
-        {:halt, visited}
-    end
-  end)
+  guard_path
   |> MapSet.delete(start)
 
 positions_to_try
-|> Enum.filter(fn position_to_block ->
+|> Task.async_stream(fn position_to_block ->
   grid = Map.put(grid, position_to_block, "#")
 
   Stream.iterate(1, &(&1 + 1))
-  |> Enum.reduce_while({start, :up, Map.new()}, fn _, {{x, y}, dir, visited} ->
-    {dx, dy} =
-      case dir do
-        :up -> {0, -1}
-        :down -> {0, 1}
-        :left -> {-1, 0}
-        :right -> {1, 0}
-      end
-
-    next = {x + dx, y + dy}
+  |> Enum.reduce_while({start, :up, Map.new()}, fn _, {pos, dir, visited} ->
+    next = step(pos, dir)
 
     case Map.get(grid, next) do
       "." ->
         {:cont, {next, dir, visited}}
 
       "#" ->
-        if Map.get(visited, {x, y}, 0) > 2 do
+        if Map.get(visited, pos, 0) > 1 do
           {:halt, true}
         else
-          new_dir =
-            case dir do
-              :up -> :right
-              :down -> :left
-              :left -> :up
-              :right -> :down
-            end
-
-          {:cont, {{x, y}, new_dir, Map.update(visited, {x, y}, 1, & &1 + 1)}}
+          {:cont, {pos, turn(dir), Map.update(visited, pos, 1, &(&1 + 1))}}
         end
 
       nil ->
@@ -193,5 +137,5 @@ positions_to_try
     end
   end)
 end)
-|> Enum.count()
+|> Enum.count(&(&1 |> elem(1)))
 ```
