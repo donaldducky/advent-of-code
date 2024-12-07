@@ -1,0 +1,197 @@
+# Advent of Code 2024
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 5
+
+```elixir
+input =
+  "https://adventofcode.com/2024/day/6/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+....#.....
+.........#
+..........
+..#.......
+.......#..
+..........
+.#..^.....
+........#.
+#.........
+......#...
+"""
+```
+
+```elixir
+defmodule Day6 do
+  def parse(input) do
+    lines =
+      input
+      |> String.split("\n", trim: true)
+      |> Enum.map(&String.split(&1, "", trim: true))
+
+    for {row, y} <- Enum.with_index(lines),
+        {val, x} <- Enum.with_index(row),
+        into: %{},
+        do: {{x, y}, val}
+  end
+end
+```
+
+```elixir
+import Day6
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+grid =
+  input
+  |> parse()
+
+{start, _} =
+  grid
+  |> Enum.find(fn {_k, v} -> v == "^" end)
+
+visited = MapSet.new([start])
+grid = Map.put(grid, start, ".")
+
+Stream.iterate(1, &(&1 + 1))
+|> Enum.reduce_while({start, :up, visited}, fn _, {{x, y}, dir, visited} ->
+  {dx, dy} =
+    case dir do
+      :up -> {0, -1}
+      :down -> {0, 1}
+      :left -> {-1, 0}
+      :right -> {1, 0}
+    end
+
+  next = {x + dx, y + dy}
+
+  case Map.get(grid, next) do
+    "." ->
+      {:cont, {next, dir, MapSet.put(visited, next)}}
+
+    "#" ->
+      new_dir =
+        case dir do
+          :up -> :right
+          :down -> :left
+          :left -> :up
+          :right -> :down
+        end
+      {:cont, {{x,y}, new_dir, visited}}
+
+    nil ->
+      {:halt, visited}
+  end
+end)
+|> MapSet.size()
+```
+
+## Part 2
+
+```elixir
+grid =
+  input
+  |> parse()
+
+{start, _} =
+  grid
+  |> Enum.find(fn {_k, v} -> v == "^" end)
+
+# positions_to_try =
+#   grid
+#   |> Enum.filter(fn {_k, v} -> v == "." end)
+#   |> Enum.map(&elem(&1, 0))
+
+visited = MapSet.new([start])
+grid = Map.put(grid, start, ".")
+
+# check all positions the guard normally walks
+positions_to_try =
+  Stream.iterate(1, &(&1 + 1))
+  |> Enum.reduce_while({start, :up, visited}, fn _, {{x, y}, dir, visited} ->
+    {dx, dy} =
+      case dir do
+        :up -> {0, -1}
+        :down -> {0, 1}
+        :left -> {-1, 0}
+        :right -> {1, 0}
+      end
+
+    next = {x + dx, y + dy}
+
+    case Map.get(grid, next) do
+      "." ->
+        {:cont, {next, dir, MapSet.put(visited, next)}}
+
+      "#" ->
+        new_dir =
+          case dir do
+            :up -> :right
+            :down -> :left
+            :left -> :up
+            :right -> :down
+          end
+
+        {:cont, {{x, y}, new_dir, visited}}
+
+      nil ->
+        {:halt, visited}
+    end
+  end)
+  |> MapSet.delete(start)
+
+positions_to_try
+|> Enum.filter(fn position_to_block ->
+  grid = Map.put(grid, position_to_block, "#")
+
+  Stream.iterate(1, &(&1 + 1))
+  |> Enum.reduce_while({start, :up, Map.new()}, fn _, {{x, y}, dir, visited} ->
+    {dx, dy} =
+      case dir do
+        :up -> {0, -1}
+        :down -> {0, 1}
+        :left -> {-1, 0}
+        :right -> {1, 0}
+      end
+
+    next = {x + dx, y + dy}
+
+    case Map.get(grid, next) do
+      "." ->
+        {:cont, {next, dir, visited}}
+
+      "#" ->
+        if Map.get(visited, {x, y}, 0) > 2 do
+          {:halt, true}
+        else
+          new_dir =
+            case dir do
+              :up -> :right
+              :down -> :left
+              :left -> :up
+              :right -> :down
+            end
+
+          {:cont, {{x, y}, new_dir, Map.update(visited, {x, y}, 1, & &1 + 1)}}
+        end
+
+      nil ->
+        {:halt, false}
+    end
+  end)
+end)
+|> Enum.count()
+```
