@@ -1,0 +1,118 @@
+# Advent of Code 2024
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 8
+
+```elixir
+input =
+  "https://adventofcode.com/2024/day/8/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+............
+........0...
+.....0......
+.......0....
+....0.......
+......A.....
+............
+............
+........A...
+.........A..
+............
+............
+"""
+```
+
+```elixir
+defmodule Day8 do
+  def parse(input) do
+    lines =
+      input
+      |> String.split("\n", trim: true)
+      |> Enum.map(&String.split(&1, "", trim: true))
+
+    for {row, y} <- Enum.with_index(lines),
+        {val, x} <- Enum.with_index(row),
+        into: %{},
+        do: {{x, y}, val}
+  end
+
+  def expand([{x, y} | _] = acc, {dx, dy}, {min_x, max_x, min_y, max_y})
+      when x + dx >= min_x and x + dx <= max_x and y + dy >= min_y and y + dy <= max_y,
+      do: expand([{x + dx, y + dy} | acc], {dx, dy}, {min_x, max_x, min_y, max_y})
+
+  def expand(acc, _, _), do: acc
+end
+```
+
+```elixir
+import Day8
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+grid =
+  input
+  |> parse()
+
+grid
+|> Enum.reject(fn {_k, v} -> v == "." end)
+|> Enum.group_by(fn {_k, v} -> v end)
+|> Enum.map(fn {k, v} -> {k, Enum.map(v, &elem(&1, 0))} end)
+|> Enum.flat_map(fn {_k, coords} ->
+  (for x <- coords, y <- coords, x < y, do: {x, y})
+  |> Enum.flat_map(fn {{x1, y1}, {x2, y2}} ->
+    dx = x1 - x2
+    dy = y1 - y2
+
+    [{x1 + dx, y1 + dy}, {x2 - dx, y2 - dy}]
+  end)
+end)
+|> Enum.into(MapSet.new())
+|> Enum.filter(& Map.has_key?(grid, &1))
+|> Enum.count()
+```
+
+## Part 2
+
+```elixir
+grid =
+  input
+  |> parse()
+
+{min_x, max_x} = Enum.min_max(grid |> Map.keys() |> Enum.map(&elem(&1, 0)))
+{min_y, max_y} = Enum.min_max(grid |> Map.keys() |> Enum.map(&elem(&1, 1)))
+
+grid
+|> Enum.reject(fn {_k, v} -> v == "." end)
+|> Enum.group_by(fn {_k, v} -> v end)
+|> Enum.map(fn {k, v} -> {k, Enum.map(v, &elem(&1, 0))} end)
+|> Enum.flat_map(fn {_k, coords} ->
+  for(x <- coords, y <- coords, x < y, do: {x, y})
+  |> Enum.flat_map(fn {{x1, y1}, {x2, y2}} ->
+    dx = x1 - x2
+    dy = y1 - y2
+
+    [
+      expand([{x1, y1}], {dx, dy}, {min_x, max_x, min_y, max_y}),
+      expand([{x2, y2}], {-dx, -dy}, {min_x, max_x, min_y, max_y})
+    ]
+    |> List.flatten()
+  end)
+end)
+|> Enum.into(MapSet.new())
+|> Enum.filter(&Map.has_key?(grid, &1))
+|> Enum.count()
+```
