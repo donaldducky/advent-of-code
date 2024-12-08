@@ -1,0 +1,94 @@
+# Advent of Code 2024
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 7
+
+```elixir
+input =
+  "https://adventofcode.com/2024/day/7/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+190: 10 19
+3267: 81 40 27
+83: 17 5
+156: 15 6
+7290: 6 8 6 15
+161011: 16 10 13
+192: 17 8 14
+21037: 9 7 18 13
+292: 11 6 16 20
+"""
+```
+
+```elixir
+defmodule Day7 do
+  def parse(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(fn line ->
+      [ans, ints] = line |> String.split(": ", trim: true)
+
+      {
+        ans |> String.to_integer(),
+        ints |> String.split(" ", trim: true) |> Enum.map(&String.to_integer/1)
+      }
+    end)
+  end
+
+  def calibrate?(ops, {ans, [n | rest]}) do
+    calibrate?(ops, ans, rest, n)
+  end
+
+  def calibrate?(_ops, ans, _, val) when val > ans, do: false
+  def calibrate?(_ops, ans, [], ans), do: true
+  def calibrate?(_ops, _ans, [], _), do: false
+
+  def calibrate?(ops, ans, [n | rest], val) do
+    ops
+    |> Enum.any?(fn op ->
+      new_val = case op do
+        :plus -> n + val
+        :times -> n * val
+        :concat -> "#{val}#{n}" |> String.to_integer()
+      end
+
+      calibrate?(ops, ans, rest, new_val)
+    end)
+  end
+end
+```
+
+```elixir
+import Day7
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> parse()
+|> Enum.filter(& calibrate?([:plus, :times], &1))
+|> Enum.map(& elem(&1, 0))
+|> Enum.sum()
+```
+
+## Part 2
+
+```elixir
+input
+|> parse()
+|> Enum.filter(&calibrate?([:plus, :times, :concat], &1))
+|> Enum.map(&elem(&1, 0))
+|> Enum.sum()
+```
