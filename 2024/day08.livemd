@@ -46,11 +46,15 @@ defmodule Day8 do
         do: {{x, y}, val}
   end
 
-  def expand([{x, y} | _] = acc, {dx, dy}, {min_x, max_x, min_y, max_y})
-      when x + dx >= min_x and x + dx <= max_x and y + dy >= min_y and y + dy <= max_y,
-      do: expand([{x + dx, y + dy} | acc], {dx, dy}, {min_x, max_x, min_y, max_y})
+  def expand(grid, [{x, y} | _] = acc, {dx, dy}) do
+    next = {x + dx, y + dy}
 
-  def expand(acc, _, _), do: acc
+    if Map.has_key?(grid, next) do
+      expand(grid, [next | acc], {dx, dy})
+    else
+      acc
+    end
+  end
 end
 ```
 
@@ -92,9 +96,6 @@ grid =
   input
   |> parse()
 
-{min_x, max_x} = Enum.min_max(grid |> Map.keys() |> Enum.map(&elem(&1, 0)))
-{min_y, max_y} = Enum.min_max(grid |> Map.keys() |> Enum.map(&elem(&1, 1)))
-
 grid
 |> Enum.reject(fn {_k, v} -> v == "." end)
 |> Enum.group_by(fn {_k, v} -> v end)
@@ -106,13 +107,12 @@ grid
     dy = y1 - y2
 
     [
-      expand([{x1, y1}], {dx, dy}, {min_x, max_x, min_y, max_y}),
-      expand([{x2, y2}], {-dx, -dy}, {min_x, max_x, min_y, max_y})
+      expand(grid, [{x1, y1}], {dx, dy}),
+      expand(grid, [{x2, y2}], {-dx, -dy})
     ]
     |> List.flatten()
   end)
 end)
 |> Enum.into(MapSet.new())
-|> Enum.filter(&Map.has_key?(grid, &1))
 |> Enum.count()
 ```
