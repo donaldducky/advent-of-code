@@ -1,0 +1,136 @@
+# Advent of Code 2024
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 10
+
+```elixir
+input =
+  "https://adventofcode.com/2024/day/10/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = 
+"""
+89010123
+78121874
+87430965
+96549874
+45678903
+32019012
+01329801
+10456732
+"""
+```
+
+```elixir
+defmodule Day10 do
+  def parse(input) do
+    lines =
+      input
+      |> String.split("\n", trim: true)
+      |> Enum.map(&String.split(&1, "", trim: true))
+
+    for {row, y} <- Enum.with_index(lines),
+        {val, x} <- Enum.with_index(row),
+        into: %{},
+        do: {{x, y}, val |> String.to_integer()}
+  end
+
+  def walk_trails(grid) do
+    trailheads =
+      Enum.reduce(grid, [], fn
+        {pos, 0}, acc -> [pos | acc]
+        _, acc -> acc
+      end)
+
+    trailheads
+    |> Enum.map(&count_paths(grid, MapSet.new([&1]), 0))
+  end
+
+  def count_paths(_grid, [], _), do: 0
+  def count_paths(_grid, open, 9), do: Enum.count(open)
+
+  def count_paths(grid, open, n) do
+    open =
+      open
+      |> Enum.flat_map(fn {x, y} ->
+        [
+          {1, 0},
+          {-1, 0},
+          {0, 1},
+          {0, -1}
+        ]
+        |> Enum.map(fn {dx, dy} -> {x + dx, y + dy} end)
+        |> Enum.filter(&(Map.get(grid, &1) == n + 1))
+      end)
+      |> Enum.into(MapSet.new())
+
+    count_paths(grid, open, n + 1)
+  end
+
+  def rate_trails(grid) do
+    trailheads =
+      Enum.reduce(grid, [], fn
+        {pos, 0}, acc -> [pos | acc]
+        _, acc -> acc
+      end)
+
+    trailheads
+    |> Enum.map(&rate_trail(grid, [[&1]], 0))
+  end
+
+  def rate_trail(_grid, [], _), do: 0
+  def rate_trail(_grid, open, 9), do: open |> Enum.count()
+
+  def rate_trail(grid, open, n) do
+    open =
+      open
+      |> Enum.flat_map(fn [{x, y} | _rest] = path ->
+        [
+          {1, 0},
+          {-1, 0},
+          {0, 1},
+          {0, -1}
+        ]
+        |> Enum.map(fn {dx, dy} -> {x + dx, y + dy} end)
+        |> Enum.filter(&(Map.get(grid, &1) == n + 1))
+        |> Enum.map(fn next_pos -> [next_pos | path] end)
+      end)
+
+    rate_trail(grid, open, n + 1)
+  end
+end
+```
+
+```elixir
+import Day10
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> parse()
+|> walk_trails()
+|> Enum.sum()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> parse()
+|> rate_trails()
+|> Enum.sum()
+```
