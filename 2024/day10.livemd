@@ -44,52 +44,18 @@ defmodule Day10 do
   end
 
   def walk_trails(grid) do
-    trailheads =
-      Enum.reduce(grid, [], fn
-        {pos, 0}, acc -> [pos | acc]
-        _, acc -> acc
-      end)
-
-    trailheads
-    |> Enum.map(&count_paths(grid, MapSet.new([&1]), 0))
+    grid
+    |> Enum.reduce([], fn
+      {pos, 0}, acc -> [pos | acc]
+      _, acc -> acc
+    end)
+    |> Enum.map(&walk_trail(grid, [[&1]], 0))
   end
 
-  def count_paths(_grid, [], _), do: 0
-  def count_paths(_grid, open, 9), do: Enum.count(open)
+  def walk_trail(_grid, [], _), do: 0
+  def walk_trail(_grid, open, 9), do: open
 
-  def count_paths(grid, open, n) do
-    open =
-      open
-      |> Enum.flat_map(fn {x, y} ->
-        [
-          {1, 0},
-          {-1, 0},
-          {0, 1},
-          {0, -1}
-        ]
-        |> Enum.map(fn {dx, dy} -> {x + dx, y + dy} end)
-        |> Enum.filter(&(Map.get(grid, &1) == n + 1))
-      end)
-      |> Enum.into(MapSet.new())
-
-    count_paths(grid, open, n + 1)
-  end
-
-  def rate_trails(grid) do
-    trailheads =
-      Enum.reduce(grid, [], fn
-        {pos, 0}, acc -> [pos | acc]
-        _, acc -> acc
-      end)
-
-    trailheads
-    |> Enum.map(&rate_trail(grid, [[&1]], 0))
-  end
-
-  def rate_trail(_grid, [], _), do: 0
-  def rate_trail(_grid, open, 9), do: open |> Enum.count()
-
-  def rate_trail(grid, open, n) do
+  def walk_trail(grid, open, n) do
     open =
       open
       |> Enum.flat_map(fn [{x, y} | _rest] = path ->
@@ -104,7 +70,7 @@ defmodule Day10 do
         |> Enum.map(fn next_pos -> [next_pos | path] end)
       end)
 
-    rate_trail(grid, open, n + 1)
+    walk_trail(grid, open, n + 1)
   end
 end
 ```
@@ -121,6 +87,12 @@ import Day10
 input
 |> parse()
 |> walk_trails()
+|> Enum.map(fn paths ->
+  paths
+  |> Enum.map(&hd/1)
+  |> Enum.uniq()
+  |> Enum.count()
+end)
 |> Enum.sum()
 ```
 
@@ -131,6 +103,7 @@ input
 ```elixir
 input
 |> parse()
-|> rate_trails()
+|> walk_trails()
+|> Enum.map(&Enum.count/1)
 |> Enum.sum()
 ```
