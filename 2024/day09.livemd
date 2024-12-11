@@ -1,0 +1,134 @@
+# Advent of Code 2024
+
+```elixir
+Mix.install([
+  {:req, "~> 0.3.2"}
+])
+```
+
+## Day 9
+
+```elixir
+input =
+  "https://adventofcode.com/2024/day/9/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+2333133121414131402
+"""
+```
+
+```elixir
+defmodule Day9 do
+  def parse(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(&String.split(&1, "", trim: true))
+    |> hd()
+    |> Enum.map(&String.to_integer/1)
+  end
+
+  def defrag(fs) do
+    defrag(fs, Enum.reverse(fs), [], Enum.count(fs, &(&1 != ".")))
+  end
+
+  def defrag(_, _, fs, 0), do: fs
+
+  def defrag(left, ["." | tl_r], fs, n), do: defrag(left, tl_r, fs, n)
+  def defrag(["." | tl_l], [hd_r | tl_r], fs, n), do: defrag(tl_l, tl_r, [hd_r | fs], n - 1)
+  def defrag([hd_l | tl_l], right, fs, n), do: defrag(tl_l, right, [hd_l | fs], n - 1)
+
+  def defrag2(chunks) do
+    defrag2(chunks, Enum.reverse(chunks) |> Enum.filter(& is_tuple/1))
+  end
+
+  def defrag2(chunks, []), do: chunks
+
+  def defrag2(chunks, [{id, size} | tl]) do
+    move_file(chunks, {id, size}, [])
+    |> defrag2(tl)
+  end
+
+  def move_file([{id, _} | _tl] = rest, {id, _size}, acc), do: Enum.reverse(acc) ++ rest
+
+  def move_file([chunk | tl], file, acc) when is_tuple(chunk),
+    do: move_file(tl, file, [chunk | acc])
+
+  def move_file([free_space | tl], {_id, size} = file, acc)
+      when is_integer(free_space) and size > free_space,
+      do: move_file(tl, file, [free_space | acc])
+
+  def move_file([free_space | tl], {id, size} = file, acc) when is_integer(free_space) do
+    acc = [file | acc]
+
+    acc =
+      case free_space - size do
+        0 -> acc
+        n -> [n | acc]
+      end
+
+    tl =
+      tl
+      |> Enum.map(fn chunk ->
+        case chunk do
+          {^id, n} -> n
+          chunk -> chunk
+        end
+      end)
+
+    Enum.reverse(acc) ++ tl
+  end
+end
+```
+
+```elixir
+import Day9
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> parse()
+|> Enum.chunk_every(2, 2, [0])
+|> Enum.with_index()
+|> Enum.flat_map(fn {[f, s], id} ->
+  [id |> List.duplicate(f)] ++ ["." |> List.duplicate(s)]
+end)
+|> List.flatten()
+|> defrag()
+|> Enum.reverse
+|> Enum.with_index()
+|> Enum.map(fn {id, pos} -> id * pos end)
+|> Enum.sum()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> parse()
+|> Enum.chunk_every(2, 2)
+|> Enum.with_index()
+|> Enum.flat_map(fn
+  {[f, s], id} -> [{id, f}, s]
+  {[f], id} -> [{id, f}]
+end)
+|> Enum.reject(& &1 == 0)
+|> defrag2()
+|> Enum.flat_map(fn
+  {id, size} -> List.duplicate(id, size)
+  n -> List.duplicate(".", n)
+end)
+|> Enum.with_index()
+|> Enum.reject(& elem(&1, 0) == ".")
+|> Enum.map(fn {id, pos} -> id * pos end)
+|> Enum.sum()
+```
