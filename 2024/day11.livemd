@@ -1,0 +1,125 @@
+# Advent of Code 2024
+
+```elixir
+Mix.install([
+  {:req, "~> 0.5.8"},
+  {:kino, "~> 0.14.2"}
+])
+```
+
+## Day 11
+
+```elixir
+Kino.configure(inspect: [charlists: :as_lists])
+```
+
+```elixir
+input =
+  "https://adventofcode.com/2024/day/11/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample =
+  """
+  0 1 10 99 999
+  """
+```
+
+```elixir
+sample2 =
+  """
+  125 17
+  """
+```
+
+```elixir
+defmodule Day11 do
+  def parse(input) do
+    input
+    |> String.split("\n", trim: true)
+    |> Enum.map(&String.split(&1, " ", trim: true))
+    |> hd()
+    |> Enum.map(&String.to_integer/1)
+  end
+
+  def blink(0), do: [1]
+
+  def blink(n) do
+    s = Integer.to_string(n)
+    len = String.length(s)
+
+    if len |> rem(2) == 0 do
+      String.split_at(s, len |> div(2)) |> Tuple.to_list() |> Enum.map(&String.to_integer/1)
+    else
+      [n * 2024]
+    end
+  end
+
+  def count_stones(stones, depth) do
+    memo = Map.new()
+
+    stones
+    |> Enum.map_reduce(memo, fn stone, memo ->
+      count_stones(stone, depth, memo)
+    end)
+    |> elem(0)
+    |> Enum.sum()
+  end
+
+  def count_stones(_, 0, memo), do: {1, memo}
+
+  def count_stones(stone, n, memo) do
+    case Map.get(memo, {stone, n - 1}) do
+      nil ->
+        {counts, memo} =
+          blink(stone)
+          |> Enum.map_reduce(memo, fn stone, memo ->
+            count_stones(stone, n - 1, memo)
+          end)
+
+        sum = Enum.sum(counts)
+
+        {sum, Map.put(memo, {stone, n - 1}, sum)}
+
+      n ->
+        {n, memo}
+    end
+  end
+end
+```
+
+```elixir
+import Day11
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> parse()
+|> then(fn stones ->
+  stones
+  |> Enum.flat_map(fn stone ->
+    1..25
+    |> Enum.reduce([stone], fn _i, acc ->
+      acc
+      |> Enum.flat_map(&blink(&1))
+    end)
+  end)
+end)
+|> Enum.count()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> parse()
+|> count_stones(75)
+```
