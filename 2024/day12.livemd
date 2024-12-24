@@ -1,0 +1,253 @@
+# Advent of Code 2024
+
+```elixir
+Mix.install([
+  {:req, "~> 0.5.8"},
+  {:kino, "~> 0.14.2"}
+])
+```
+
+## Day 12
+
+```elixir
+Kino.configure(inspect: [charlists: :as_lists])
+```
+
+```elixir
+input =
+  "https://adventofcode.com/2024/day/12/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample =
+  """
+  AAAA
+  BBCD
+  BBCC
+  EEEC
+  """
+```
+
+```elixir
+sample2 = """
+OOOOO
+OXOXO
+OOOOO
+OXOXO
+OOOOO
+"""
+```
+
+```elixir
+sample3 =
+  """
+  RRRRIICCFF
+  RRRRIICCCF
+  VVRRRCCFFF
+  VVRCCCJFFF
+  VVVVCJJCFE
+  VVIVCCJJEE
+  VVIIICJJEE
+  MIIIIIJJEE
+  MIIISIJEEE
+  MMMISSJEEE
+  """
+```
+
+```elixir
+sample4 = """
+EEEEE
+EXXXX
+EEEEE
+EXXXX
+EEEEE
+"""
+```
+
+```elixir
+defmodule Day12 do
+  def parse(input) do
+    lines =
+      input
+      |> String.split("\n", trim: true)
+      |> Enum.map(&String.split(&1, "", trim: true))
+
+    for {row, y} <- Enum.with_index(lines),
+        {val, x} <- Enum.with_index(row),
+        into: %{},
+        do: {{x, y}, val}
+  end
+
+  def total_price(grid) do
+    grid
+    |> Enum.reduce({0, MapSet.new()}, fn {k, v}, {total, seen} ->
+      if MapSet.member?(seen, k) do
+        {total, seen}
+      else
+        {price, seen} =
+          calc_region([k], v, grid, seen, 0, 0)
+
+        {price + total, seen}
+      end
+    end)
+    |> elem(0)
+  end
+
+  def calc_region([], _, _, seen, perimeter, area), do: {perimeter * area, seen}
+
+  def calc_region([pos | rest], plant, grid, seen, perimeter, area) do
+    if MapSet.member?(seen, pos) do
+      calc_region(rest, plant, grid, seen, perimeter, area)
+    else
+      seen = MapSet.put(seen, pos)
+      area = area + 1
+
+      {x, y} = pos
+
+      {to_visit, perimeter} =
+        [
+          {1, 0},
+          {-1, 0},
+          {0, 1},
+          {0, -1}
+        ]
+        |> Enum.map(fn {dx, dy} -> {x + dx, y + dy} end)
+        |> Enum.reduce({rest, perimeter}, fn pos, {to_visit, perimeter} ->
+          cond do
+            Map.get(grid, pos) != plant ->
+              {to_visit, perimeter + 1}
+
+            MapSet.member?(seen, pos) ->
+              {to_visit, perimeter}
+
+            true ->
+              {[pos | to_visit], perimeter}
+          end
+        end)
+
+      calc_region(to_visit, plant, grid, seen, perimeter, area)
+    end
+  end
+
+  def find_regions(grid) do
+    grid
+    |> Enum.reduce({[], MapSet.new()}, fn {k, v}, {regions, seen} ->
+      if MapSet.member?(seen, k) do
+        {regions, seen}
+      else
+        {region, seen} =
+          find_region([k], v, grid, seen, MapSet.new())
+
+        {[region | regions], seen}
+      end
+    end)
+    |> elem(0)
+  end
+
+  def find_region([], _, _, seen, region), do: {region, seen}
+
+  def find_region([pos | rest], plant, grid, seen, region) do
+    if MapSet.member?(seen, pos) do
+      find_region(rest, plant, grid, seen, region)
+    else
+      seen = MapSet.put(seen, pos)
+      region = MapSet.put(region, pos)
+
+      {x, y} = pos
+
+      to_visit =
+        [
+          {1, 0},
+          {-1, 0},
+          {0, 1},
+          {0, -1}
+        ]
+        |> Enum.map(fn {dx, dy} -> {x + dx, y + dy} end)
+        |> Enum.filter(&(Map.get(grid, &1) == plant))
+        |> Enum.reduce(rest, fn pos, to_visit -> [pos | to_visit] end)
+
+      find_region(to_visit, plant, grid, seen, region)
+    end
+  end
+end
+```
+
+```elixir
+import Day12
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> parse()
+|> total_price()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> parse()
+|> find_regions()
+|> Enum.map(fn region ->
+  area = MapSet.size(region)
+
+  # region |> IO.inspect()
+
+  exterior_corners =
+    region
+    |> Enum.to_list()
+    |> Enum.map(fn {x, y} ->
+      # is upper right corner?
+      ur? = !MapSet.member?(region, {x - 1, y}) && !MapSet.member?(region, {x, y - 1})
+      ul? = !MapSet.member?(region, {x + 1, y}) && !MapSet.member?(region, {x, y - 1})
+      br? = !MapSet.member?(region, {x - 1, y}) && !MapSet.member?(region, {x, y + 1})
+      bl? = !MapSet.member?(region, {x + 1, y}) && !MapSet.member?(region, {x, y + 1})
+
+      [ur?, ul?, br?, bl?]
+      |> Enum.filter(& &1)
+      |> Enum.count()
+    end)
+    |> Enum.sum()
+
+  interior_corners =
+    region
+    |> Enum.to_list()
+    |> Enum.map(fn {x, y} ->
+      # is upper right corner?
+      ur? =
+        MapSet.member?(region, {x - 1, y}) && MapSet.member?(region, {x, y + 1}) &&
+          !MapSet.member?(region, {x - 1, y + 1})
+
+      ul? =
+        MapSet.member?(region, {x + 1, y}) && MapSet.member?(region, {x, y + 1}) &&
+          !MapSet.member?(region, {x + 1, y + 1})
+
+      br? =
+        MapSet.member?(region, {x - 1, y}) && MapSet.member?(region, {x, y - 1}) &&
+          !MapSet.member?(region, {x - 1, y - 1})
+
+      bl? =
+        MapSet.member?(region, {x + 1, y}) && MapSet.member?(region, {x, y - 1}) &&
+          !MapSet.member?(region, {x + 1, y - 1})
+
+      [ur?, ul?, br?, bl?]
+      |> Enum.filter(& &1)
+      |> Enum.count()
+    end)
+    |> Enum.sum()
+
+  {area, exterior_corners + interior_corners}
+  # |> IO.inspect(label: "ex_#{exterior_corners} in_#{interior_corners}")
+end)
+# |> IO.inspect()
+|> Enum.map(fn {a, b} -> a * b end)
+|> Enum.sum()
+```
