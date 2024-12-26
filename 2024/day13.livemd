@@ -1,0 +1,103 @@
+# Advent of Code 2024
+
+```elixir
+Mix.install([
+  {:req, "~> 0.5.8"},
+  {:kino, "~> 0.14.2"}
+])
+```
+
+## Day 13
+
+```elixir
+Kino.configure(inspect: [charlists: :as_lists])
+```
+
+```elixir
+input =
+  "https://adventofcode.com/2024/day/13/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample =
+  """
+  Button A: X+94, Y+34
+  Button B: X+22, Y+67
+  Prize: X=8400, Y=5400
+
+  Button A: X+26, Y+66
+  Button B: X+67, Y+21
+  Prize: X=12748, Y=12176
+
+  Button A: X+17, Y+86
+  Button B: X+84, Y+37
+  Prize: X=7870, Y=6450
+
+  Button A: X+69, Y+23
+  Button B: X+27, Y+71
+  Prize: X=18641, Y=10279
+  """
+```
+
+```elixir
+defmodule Day13 do
+  def parse(input) do
+    input
+    |> String.split("\n\n", trim: true)
+    |> Enum.map(fn lines ->
+      lines
+      |> String.split("\n", trim: true)
+      |> Enum.map(fn s ->
+        [_, _, a, _, b] = Regex.run(~r/X(\+|=)(\d+), Y(\+|=)(\d+)/, s)
+
+        [a, b]
+        |> Enum.map(&String.to_integer/1)
+        |> List.to_tuple()
+      end)
+    end)
+  end
+
+  def cheapest_prize({ax, ay}, {bx, by}, {gx, gy}) do
+    for a <- 0..100, b <- 0..100 do
+      {a, b}
+    end
+    |> Enum.filter(fn {a, b} ->
+      a * ax + b * bx == gx && a * ay + b * by == gy
+    end)
+    |> case do
+      [] -> 0
+      valid ->
+        valid
+        |> Enum.map(fn {a, b} -> 3 * a + b end)
+        |> Enum.min()
+    end
+  end
+end
+```
+
+```elixir
+import Day13
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> parse()
+|> Enum.map(fn machine -> apply(&cheapest_prize / 3, machine) end)
+|> Enum.sum()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+modifier = 10000000000000
+input
+|> parse()
+```
