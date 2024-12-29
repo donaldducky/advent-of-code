@@ -1,0 +1,427 @@
+# Advent of Code 2024
+
+```elixir
+Mix.install([
+  {:req, "~> 0.5.8"},
+  {:kino, "~> 0.14.2"}
+])
+```
+
+## Day 15
+
+```elixir
+Kino.configure(inspect: [charlists: :as_lists])
+```
+
+```elixir
+input =
+  "https://adventofcode.com/2024/day/15/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample =
+  """
+  ##########
+  #..O..O.O#
+  #......O.#
+  #.OO..O.O#
+  #..O@..O.#
+  #O#..O...#
+  #O..O..O.#
+  #.OO.O.OO#
+  #....O...#
+  ##########
+  
+  <vv>^<v^>v>^vv^v>v<>v^v<v<^vv<<<^><<><>>v<vvv<>^v^>^<<<><<v<<<v^vv^v>^
+  vvv<<^>^v^^><<>>><>^<<><^vv^^<>vvv<>><^^v>^>vv<>v<<<<v<^v>^<^^>>>^<v<v
+  ><>vv>v^v^<>><>>>><^^>vv>v<^^^>>v^v^<^^>v^^>v^<^v>v<>>v^v^<v>v^^<^^vv<
+  <<v<^>>^^^^>>>v^<>vvv^><v<<<>^^^vv^<vvv>^>v<^^^^v<>^>vvvv><>>v^<<^^^^^
+  ^><^><>>><>^^<<^^v>>><^<v>^<vv>>v>>>^v><>^v><<<<v>>v<v<v>vvv>^<><<>^><
+  ^>><>^v<><^vvv<^^<><v<<<<<><^v<<<><<<^^<v<^^^><^>>^<v^><<<^>>^v<v^v<v^
+  >^>>^v>vv>^<<^v<>><<><<v<<v><>v<^vv<<<>^^v^>^^>>><<^v>>v^v><^^>>^<>vv^
+  <><^^>^^^<><vvvvv^v<v<<>^v<v>v<<^><<><<><<<^^<<<^<<>><<><^^^>^^<>^>v<>
+  ^^>vv<^v^v<vv>^<><v<^v>^^^>>>^^vvv^>vvv<>>>^<^>>>>>^<<^v>^vvv<>^<><<v>
+  v^^>>><<^^<>>^v^<v^vv<>v^<<>^<^v^v><^<<<><<^<v><v<>vv>>v><v^<vv<>v^<<^
+  """
+```
+
+```elixir
+sample2 = """
+########
+#..O.O.#
+##@.O..#
+#...O..#
+#.#.O..#
+#...O..#
+#......#
+########
+
+<^^>>>vv<v>>v<<
+"""
+```
+
+```elixir
+defmodule Day15 do
+  def parse(input, supersize? \\ false) do
+    input
+    |> String.split("\n\n", trim: true)
+    |> then(fn [a, b] ->
+      lines =
+        String.split(a, "\n", trim: true)
+        |> Enum.map(&String.split(&1, "", trim: true))
+
+      lines =
+        if supersize? do
+          lines
+          |> Enum.map(fn line ->
+            Enum.flat_map(line, fn
+              "#" -> ["#", "#"]
+              "O" -> ["[", "]"]
+              "." -> [".", "."]
+              "@" -> ["@", "."]
+            end)
+          end)
+        else
+          lines
+        end
+
+      h = lines |> Enum.count()
+      w = hd(lines) |> Enum.count()
+
+      grid =
+        for {row, y} <- Enum.with_index(lines),
+            {val, x} <- Enum.with_index(row),
+            into: %{},
+            do: {{x, y}, val}
+
+      b =
+        String.split(b, "\n", trim: true)
+        |> Enum.flat_map(&String.split(&1, "", trim: true))
+
+      {grid, w, h, b}
+    end)
+  end
+
+  def compress(moves), do: compress(tl(moves), [{hd(moves), 1}])
+  def compress([], c), do: c
+  def compress([hd | tl], [{hd, n} | tl2]), do: compress(tl, [{hd, n + 1} | tl2])
+  def compress([hd | tl], c), do: compress(tl, [{hd, 1} | c])
+
+  def draw(grid, w, h, pos) do
+    for y <- 0..(h - 1), x <- 0..(w - 1), reduce: "" do
+      acc ->
+        case {x, y} do
+          ^pos -> acc <> "@"
+          _ -> acc <> Map.get(grid, {x, y}, ".")
+        end
+        |> then(fn acc ->
+          case {x, y} do
+            {x, y} when x == w - 1 and y < h - 1 ->
+              acc <> "\n"
+
+            _ ->
+              acc
+          end
+        end)
+    end
+  end
+
+  def step(grid, pos, dir) do
+    v =
+      case dir do
+        ">" -> {1, 0}
+        "<" -> {-1, 0}
+        "^" -> {0, -1}
+        "v" -> {0, 1}
+      end
+
+    path =
+      move(grid, pos, v, 1, [])
+      |> case do
+        ["#" | tl] -> remove_boxes(tl)
+        path -> path
+      end
+
+    case Enum.count(path) do
+      0 ->
+        {grid, pos}
+
+      _ ->
+        counts =
+          path
+          |> Enum.frequencies()
+
+        spaces = Map.get(counts, " ")
+        boxes = Map.get(counts, "O", 0)
+
+        {x, y} = pos
+        {vx, vy} = v
+
+        new_pos = {x + vx * spaces, y + vy * spaces}
+
+        # clear spaces
+        grid =
+          1..spaces
+          |> Enum.reduce(grid, fn i, grid ->
+            Map.delete(grid, {x + vx * i, y + vy * i})
+          end)
+
+        # shift boxes
+        grid =
+          case boxes do
+            0 ->
+              grid
+
+            _ ->
+              (1 + spaces)..(spaces + boxes)
+              |> Enum.reduce(grid, fn i, grid ->
+                Map.put(grid, {x + vx * i, y + vy * i}, "O")
+              end)
+          end
+
+        {grid, new_pos}
+    end
+  end
+
+  def move(_, _, _, 0, path), do: path
+
+  def move(grid, {x, y}, {vx, vy}, spaces_left, path) do
+    n = (path |> Enum.count()) + 1
+    next = {x + vx * n, y + vy * n}
+
+    case Map.get(grid, next) do
+      "#" -> ["#" | path]
+      "O" -> move(grid, {x, y}, {vx, vy}, spaces_left, ["O" | path])
+      nil -> move(grid, {x, y}, {vx, vy}, spaces_left - 1, [" " | path])
+    end
+  end
+
+  def remove_boxes([]), do: []
+  def remove_boxes(["O" | tl]), do: remove_boxes(tl)
+  def remove_boxes([" " | _] = path), do: path
+
+  def step2(grid, pos, dir) do
+    v =
+      case dir do
+        ">" -> {1, 0}
+        "<" -> {-1, 0}
+        "^" -> {0, -1}
+        "v" -> {0, 1}
+      end
+
+    move2(grid, pos, v)
+  end
+
+  def move2(grid, {x, y}, {vx, vy}) when vx != 0 do
+    push(grid, {x, y}, {vx, vy}, 1, [])
+    |> case do
+      nil ->
+        {grid, {x, y}}
+
+      path ->
+        grid =
+          path
+          |> Enum.reduce(grid, fn {{x, y}, cell}, grid ->
+            Map.put(grid, {x + vx, y + vy}, cell)
+          end)
+
+        pos = {x + vx, y + vy}
+        grid = Map.delete(grid, pos)
+        {grid, pos}
+    end
+  end
+
+  def move2(grid, {x, y}, {vx, vy}) when vy != 0 do
+    push_vertical(grid, {x, y}, {vx, vy})
+    |> case do
+      nil ->
+        {grid, {x, y}}
+
+      path ->
+        grid =
+          path
+          |> Enum.reduce(grid, fn {pos, _}, grid ->
+            Map.delete(grid, pos)
+          end)
+
+        grid =
+          path
+          |> Enum.reduce(grid, fn {{x, y}, cell}, grid ->
+            Map.put(grid, {x + vx, y + vy}, cell)
+          end)
+
+        pos = {x + vx, y + vy}
+        grid = Map.delete(grid, pos)
+        {grid, pos}
+    end
+  end
+
+  def push(grid, {x, y}, {vx, vy}, n, path) do
+    next = {x + vx * n, y + vy * n}
+
+    case Map.get(grid, next) do
+      "#" ->
+        nil
+
+      nil ->
+        path
+
+      cell when cell in ["[", "]"] ->
+        push(grid, {x, y}, {vx, vy}, n + 1, [{next, cell} | path])
+    end
+  end
+
+  def push_vertical(grid, {x, y}, {vx, vy}) do
+    nx = x + vx
+    ny = y + vy
+
+    case Map.get(grid, {nx, ny}) do
+      "#" ->
+        nil
+
+      nil ->
+        []
+
+      "[" ->
+        left = push_vertical(grid, {nx, ny}, {vx, vy})
+        right = push_vertical(grid, {nx + 1, ny}, {vx, vy})
+
+        if left == nil || right == nil do
+          nil
+        else
+          [
+            left,
+            right,
+            [{{nx, ny}, "["}, {{nx + 1, ny}, "]"}]
+          ]
+          |> Enum.concat()
+        end
+
+      "]" ->
+        left = push_vertical(grid, {nx - 1, ny}, {vx, vy})
+        right = push_vertical(grid, {nx, ny}, {vx, vy})
+
+        if left == nil || right == nil do
+          nil
+        else
+          [
+            left,
+            right,
+            [{{nx - 1, ny}, "["}, {{nx, ny}, "]"}]
+          ]
+          |> Enum.concat()
+        end
+    end
+  end
+end
+```
+
+```elixir
+import Day15
+```
+
+## Part 1
+
+```elixir
+steps = Kino.Input.number("steps")
+```
+
+```elixir
+all? = Kino.Input.checkbox("all?")
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+````elixir
+{grid, w, h, moves} =
+  input
+  |> parse()
+
+# moves |> compress() |> IO.inspect()
+
+start = grid |> Enum.find(fn {_k, v} -> v == "@" end) |> elem(0)
+grid = grid |> Enum.filter(fn {_k, v} -> v not in ["@", "."] end) |> Enum.into(Map.new())
+
+{grid, pos} =
+  moves
+  |> then(fn moves ->
+    if Kino.Input.read(all?) do
+      moves
+    else
+      moves |> Enum.take(Kino.Input.read(steps))
+    end
+  end)
+  |> Enum.reduce({grid, start}, fn dir, {grid, pos} ->
+    step(grid, pos, dir)
+  end)
+
+sum =
+  grid
+  |> Enum.filter(fn {_, v} -> v == "O" end)
+  |> Enum.map(fn {{x, y}, _} -> 100 * y + x end)
+  |> Enum.sum()
+
+[
+  sum,
+  "```",
+  draw(grid, w, h, pos),
+  "```"
+]
+|> Enum.join("\n")
+|> Kino.Markdown.new()
+````
+
+## Part 2
+
+```elixir
+sample3 = """
+#######
+#...#.#
+#.....#
+#..OO@#
+#..O..#
+#.....#
+#######
+
+<vv<<^^<<^^
+"""
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+````elixir
+{grid, w, h, moves} =
+  input
+  |> parse(true)
+
+start = grid |> Enum.find(fn {_k, v} -> v == "@" end) |> elem(0)
+grid = grid |> Enum.filter(fn {_k, v} -> v not in ["@", "."] end) |> Enum.into(Map.new())
+
+{grid, pos} =
+  moves
+  # |> Enum.take(8)
+  |> Enum.reduce({grid, start}, fn dir, {grid, pos} ->
+    step2(grid, pos, dir)
+  end)
+
+sum =
+  grid
+  |> Enum.filter(fn {_, v} ->
+    v == "["
+  end)
+  |> Enum.map(fn {{x, y}, _} ->
+    100 * y + x
+  end)
+  |> Enum.sum()
+
+[
+  sum,
+  "```",
+  draw(grid, w, h, pos),
+  "```"
+]
+|> Enum.join("\n")
+|> Kino.Markdown.new()
+````
