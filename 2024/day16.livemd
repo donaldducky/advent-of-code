@@ -128,25 +128,46 @@ defmodule Day16 do
   def find_score(grid, start, goal, facing) do
     seen = Map.new()
     score = 0
+    path = [start]
 
     pq =
       PriorityQueue.new()
-      |> PriorityQueue.push({start, facing, score}, score)
+      |> PriorityQueue.push({start, facing, score, path}, score)
 
-    search(pq, grid, goal, seen)
+    best_path_cells = MapSet.new()
+    search(pq, grid, goal, seen, best_path_cells)
   end
 
-  def search(pq, grid, goal, seen) do
+  def search(pq, grid, goal, seen, best_path_cells) do
     {{:value, node}, pq} = PriorityQueue.pop(pq)
 
-    {pos, facing, score} = node
+    {pos, facing, score, path} = node
 
     cond do
       pos == goal ->
-        score
+        Map.get(seen, goal)
+        |> case do
+          nil ->
+            seen = Map.put(seen, goal, score)
+
+            best_path_cells =
+              best_path_cells
+              |> MapSet.union(MapSet.new(path))
+
+            search(pq, grid, goal, seen, best_path_cells)
+
+          low when low < score ->
+            {low, best_path_cells}
+
+          ^score ->
+            best_path_cells =
+              best_path_cells
+              |> MapSet.union(MapSet.new(path))
+            search(pq, grid, goal, seen, best_path_cells)
+        end
 
       Map.get(seen, {pos, facing}) < score ->
-        search(pq, grid, goal, seen)
+        search(pq, grid, goal, seen, best_path_cells)
 
       true ->
         seen = Map.put(seen, {pos, facing}, score)
@@ -156,10 +177,10 @@ defmodule Day16 do
           |> paths(grid, facing)
           |> Enum.reduce(pq, fn {pos, facing, cost}, pq ->
             score = score + cost
-            PriorityQueue.push(pq, {pos, facing, score}, score)
+            PriorityQueue.push(pq, {pos, facing, score, [pos | path]}, score)
           end)
 
-        search(pq, grid, goal, seen)
+        search(pq, grid, goal, seen, best_path_cells)
     end
   end
 
@@ -209,7 +230,8 @@ start = find_pos(grid, "S")
 goal = find_pos(grid, "E")
 facing = :east
 
-find_score(grid, start, goal, facing)
+{score, path} = find_score(grid, start, goal, facing)
+score
 ```
 
 <!-- livebook:{"reevaluate_automatically":true} -->
@@ -225,6 +247,28 @@ draw_grid(grid, w, h)
 <!-- livebook:{"reevaluate_automatically":true} -->
 
 ```elixir
+{grid, w, h} =
   input
-  |> parse(true)
+  |> parse()
+
+start = find_pos(grid, "S")
+goal = find_pos(grid, "E")
+facing = :east
+
+{score, path} = find_score(grid, start, goal, facing)
+MapSet.size(path)
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+grid =
+  path
+  |> Enum.reduce(grid, fn pos, grid ->
+    Map.put(grid, pos, "O")
+  end)
+
+draw_grid(grid, w, h)
+|> code_block()
+|> Kino.Markdown.new()
 ```
