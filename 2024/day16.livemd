@@ -1,0 +1,230 @@
+# Advent of Code 2024
+
+```elixir
+Mix.install([
+  {:req, "~> 0.5.8"},
+  {:kino, "~> 0.14.2"},
+  {:libgraph, "~> 0.16.0"}
+])
+```
+
+## Day 16
+
+```elixir
+Kino.configure(inspect: [charlists: :as_lists])
+```
+
+```elixir
+input =
+  "https://adventofcode.com/2024/day/16/input"
+  |> Req.get!(headers: [cookie: "session=#{System.get_env("AOC_COOKIE")}"])
+  |> Map.get(:body)
+```
+
+```elixir
+sample = """
+###############
+#.......#....E#
+#.#.###.#.###.#
+#.....#.#...#.#
+#.###.#####.#.#
+#.#.#.......#.#
+#.#.#####.###.#
+#...........#.#
+###.#.#####.#.#
+#...#.....#.#.#
+#.#.#.###.#.#.#
+#.....#...#.#.#
+#.###.#.#.#.#.#
+#S..#.....#...#
+###############
+"""
+```
+
+```elixir
+sample2 = """
+#################
+#...#...#...#..E#
+#.#.#.#.#.#.#.#.#
+#.#.#.#...#...#.#
+#.#.#.#.###.#.#.#
+#...#.#.#.....#.#
+#.#.#.#.#.#####.#
+#.#...#.#.#.....#
+#.#.#####.#.###.#
+#.#.#.......#...#
+#.#.###.#####.###
+#.#.#...#.....#.#
+#.#.#.#####.###.#
+#.#.#.........#.#
+#.#.#.#########.#
+#S#.............#
+#################
+"""
+```
+
+````elixir
+defmodule Day16 do
+  def lines(input) do
+    input
+    |> String.split("\n", trim: true)
+  end
+
+  def grid(input) do
+    lines =
+      lines(input)
+      |> Enum.map(&String.split(&1, "", trim: true))
+
+    h = lines |> Enum.count()
+    w = hd(lines) |> Enum.count()
+
+    grid =
+      for {row, y} <- Enum.with_index(lines),
+          {cell, x} <- Enum.with_index(row),
+          into: %{},
+          do: {{x, y}, cell}
+
+    {grid, w, h}
+  end
+
+  def find_pos(grid, val) do
+    grid
+    |> Enum.find(fn {_, v} -> v == val end)
+    |> case do
+      nil -> nil
+      {pos, _} -> pos
+    end
+  end
+
+  def draw_grid(grid, w, h) do
+    for y <- 0..(h - 1), x <- 0..(w - 1), reduce: "" do
+      acc ->
+        (acc <> Map.get(grid, {x, y}, "."))
+        |> then(fn acc ->
+          case {x, y} do
+            {x, y} when x == w - 1 and y < h - 1 ->
+              acc <> "\n"
+
+            _ ->
+              acc
+          end
+        end)
+    end
+  end
+
+  def code_block(text) do
+    [
+      "```",
+      text,
+      "```"
+    ]
+    |> Enum.join("\n")
+  end
+
+  def parse(input) do
+    grid(input)
+  end
+
+  def find_score(grid, start, goal, facing) do
+    seen = Map.new()
+    score = 0
+
+    pq =
+      PriorityQueue.new()
+      |> PriorityQueue.push({start, facing, score}, score)
+
+    search(pq, grid, goal, seen)
+  end
+
+  def search(pq, grid, goal, seen) do
+    {{:value, node}, pq} = PriorityQueue.pop(pq)
+
+    {pos, facing, score} = node
+
+    cond do
+      pos == goal ->
+        score
+
+      Map.get(seen, {pos, facing}) < score ->
+        search(pq, grid, goal, seen)
+
+      true ->
+        seen = Map.put(seen, {pos, facing}, score)
+
+        pq =
+          pos
+          |> paths(grid, facing)
+          |> Enum.reduce(pq, fn {pos, facing, cost}, pq ->
+            score = score + cost
+            PriorityQueue.push(pq, {pos, facing, score}, score)
+          end)
+
+        search(pq, grid, goal, seen)
+    end
+  end
+
+  def paths({x, y}, grid, facing) do
+    [
+      {facing, 1},
+      {turn_left(facing), 1001},
+      {turn_right(facing), 1001}
+    ]
+    |> Enum.map(fn {facing, score} ->
+      {move({x, y}, facing), facing, score}
+    end)
+    |> Enum.filter(fn {pos, _, _} -> Map.get(grid, pos) in [".", "E"] end)
+  end
+
+  def move({x, y}, :east), do: {x + 1, y}
+  def move({x, y}, :west), do: {x - 1, y}
+  def move({x, y}, :south), do: {x, y + 1}
+  def move({x, y}, :north), do: {x, y - 1}
+
+  def turn_left(:east), do: :north
+  def turn_left(:north), do: :west
+  def turn_left(:west), do: :south
+  def turn_left(:south), do: :east
+
+  def turn_right(:east), do: :south
+  def turn_right(:north), do: :east
+  def turn_right(:west), do: :north
+  def turn_right(:south), do: :west
+end
+````
+
+```elixir
+import Day16
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+{grid, w, h} =
+  input
+  |> parse()
+
+start = find_pos(grid, "S")
+goal = find_pos(grid, "E")
+facing = :east
+
+find_score(grid, start, goal, facing)
+```
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+draw_grid(grid, w, h)
+|> code_block()
+|> Kino.Markdown.new()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+  input
+  |> parse(true)
+```
