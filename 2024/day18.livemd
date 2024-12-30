@@ -1,0 +1,154 @@
+# Advent of Code 2024
+
+```elixir
+aoc_helpers_path =
+  __ENV__.file
+  |> String.split("#")
+  |> hd()
+  |> Path.dirname()
+  |> then(fn dir ->
+    [dir, "..", "aoc_helpers"]
+  end)
+  |> Path.join()
+
+Mix.install([
+  {:aoc_helpers, path: aoc_helpers_path}
+])
+```
+
+## Day 18
+
+```elixir
+import AocHelpers
+
+Kino.configure(inspect: [charlists: :as_lists])
+
+input = download_puzzle(2024, 18, cookie: System.get_env("AOC_COOKIE"))
+
+sample = """
+5,4
+4,2
+4,5
+3,0
+2,1
+6,3
+2,4
+1,5
+0,6
+3,3
+2,6
+5,1
+1,2
+5,5
+2,5
+6,5
+1,4
+0,4
+6,4
+1,1
+6,1
+1,0
+0,5
+1,6
+2,0
+"""
+
+Kino.nothing()
+```
+
+```elixir
+defmodule Day18 do
+  def parse(input) do
+    input
+    |> lines()
+    |> Enum.map(fn line ->
+      line
+      |> String.split(",")
+      |> Enum.map(&String.to_integer/1)
+      |> List.to_tuple()
+    end)
+  end
+
+  def shortest_path(grid, sz) do
+    start = {0, 0}
+    goal = {sz - 1, sz - 1}
+    path = []
+    steps = 0
+
+    pq =
+      PriorityQueue.new()
+      |> PriorityQueue.push({start, path, steps}, steps)
+
+    seen = MapSet.new()
+
+    find_path(pq, grid, goal, {sz, sz}, seen)
+  end
+
+  def find_path(pq, grid, goal, {w, h}, seen) do
+    {{:value, {pos, path, steps}}, pq} = PriorityQueue.pop(pq)
+
+    cond do
+      pos == goal ->
+        path
+
+      MapSet.member?(seen, pos) ->
+        find_path(pq, grid, goal, {w, h}, seen)
+
+      true ->
+        seen = MapSet.put(seen, pos)
+
+        pq =
+          neighbours(pos)
+          |> Enum.filter(fn {x, y} -> x in 0..(w - 1) and y in 0..(h - 1) and Map.get(grid, {x, y}) != "#" end)
+          |> Enum.reduce(pq, fn p, pq ->
+            PriorityQueue.push(pq, {p, [p | path], steps + 1}, steps + 1)
+          end)
+
+        find_path(pq, grid, goal, {w, h}, seen)
+    end
+  end
+end
+```
+
+```elixir
+import Day18
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+# s = 7
+# n = 12
+# input = sample
+
+s = 71
+n = 1024
+
+bytes = input |> parse()
+grid = bytes |> Enum.take(n) |> Enum.map(&{&1, "#"}) |> Enum.into(Map.new())
+path = grid |> shortest_path(s)
+
+grid = path |> Enum.reduce(grid, fn p, grid -> Map.put(grid, p, "O") end) |> Map.put({0, 0}, "O")
+
+grid
+|> draw_grid(s, s)
+|> code_block()
+|> then(fn out ->
+  [
+    Enum.count(path),
+    out
+  ]
+  |> Enum.join("\n")
+end)
+|> Kino.Markdown.new()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+
+```
