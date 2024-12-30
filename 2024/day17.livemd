@@ -1,0 +1,237 @@
+# Advent of Code 2024
+
+```elixir
+aoc_helpers_path =
+  __ENV__.file
+  |> String.split("#")
+  |> hd()
+  |> Path.dirname()
+  |> then(fn dir ->
+    [dir, "..", "aoc_helpers"]
+  end)
+  |> Path.join()
+
+Mix.install([
+  {:aoc_helpers, path: aoc_helpers_path}
+])
+```
+
+## Day 17
+
+```elixir
+import AocHelpers
+
+Kino.configure(inspect: [charlists: :as_lists])
+
+input = download_puzzle(2024, 17, cookie: System.get_env("AOC_COOKIE"))
+
+sample = """
+Register A: 729
+Register B: 0
+Register C: 0
+
+Program: 0,1,5,4,3,0
+"""
+
+sample2 = """
+Register A: 2024
+Register B: 0
+Register C: 0
+
+Program: 0,3,5,4,3,0
+"""
+
+Kino.nothing()
+```
+
+```elixir
+defmodule Day17 do
+  def parse(input) do
+    [registers, program] =
+      input
+      |> String.trim()
+      |> blocks()
+
+    [a, b, c] =
+      registers
+      |> lines()
+      |> Enum.map(&(&1 |> String.split(": ") |> Enum.at(1)))
+      |> map_ints()
+
+    p =
+      program
+      |> String.split(": ")
+      |> Enum.at(1)
+      |> String.split(",")
+      |> map_ints()
+
+    {a, b, c, p}
+  end
+
+  def run_program({a, b, c, p}) do
+    # let's convert the program to a map for easier access since elixir
+    # doesn't have an array/vector like structure
+    p = p |> Enum.with_index(fn element, index -> {index, element} end) |> Enum.into(Map.new())
+
+    cpu = %{
+      a: a,
+      b: b,
+      c: c,
+      ip: 0,
+      program: p,
+      output: []
+    }
+
+    run(cpu)
+    |> Map.get(:output)
+    |> Enum.reverse()
+    |> Enum.join(",")
+  end
+
+  def run(cpu) do
+    # {cpu.a, cpu.b, cpu.c, cpu.ip} |> IO.inspect()
+
+    case op(cpu) do
+      nil ->
+        cpu
+
+      op ->
+        cpu
+        |> execute(op)
+        |> run()
+    end
+  end
+
+  def execute(cpu, 0) do
+    # adv
+    cpu
+    |> Map.put(:a, div(cpu.a, Integer.pow(2, combo(cpu))))
+    |> incr_op()
+  end
+
+  def execute(cpu, 1) do
+    # bxl
+    cpu
+    |> Map.put(:b, Bitwise.bxor(cpu.b, operand(cpu)))
+    |> incr_op()
+  end
+
+  def execute(cpu, 2) do
+    # bst
+    cpu
+    |> Map.put(:b, Integer.mod(combo(cpu), 8))
+    |> incr_op()
+  end
+
+  def execute(cpu, 3) do
+    # jnz
+    ip =
+      if cpu.a == 0 do
+        cpu.ip + 2
+      else
+        operand(cpu)
+      end
+
+    cpu
+    |> set_ip(ip)
+  end
+
+  def execute(cpu, 4) do
+    # bxc
+    cpu
+    |> Map.put(:b, Bitwise.bxor(cpu.b, cpu.c))
+    |> incr_op()
+  end
+
+  def execute(cpu, 5) do
+    # out
+    cpu
+    |> Map.update!(:output, &[Integer.mod(combo(cpu), 8) | &1])
+    |> incr_op()
+  end
+
+  def execute(cpu, 6) do
+    # bdv
+    cpu
+    |> Map.put(:b, div(cpu.a, Integer.pow(2, combo(cpu))))
+    |> incr_op()
+  end
+
+  def execute(cpu, 7) do
+    # cdv
+    cpu
+    |> Map.put(:c, div(cpu.a, Integer.pow(2, combo(cpu))))
+    |> incr_op()
+  end
+
+  def op(cpu), do: Map.get(cpu.program, cpu.ip)
+  def operand(cpu), do: Map.get(cpu.program, cpu.ip + 1)
+  def incr_op(%{ip: ip} = cpu), do: cpu |> set_ip(ip + 2)
+  def set_ip(cpu, ip), do: cpu |> Map.put(:ip, ip)
+
+  def combo(cpu) do
+    case operand(cpu) do
+      n when n in 0..3 -> n
+      4 -> cpu.a
+      5 -> cpu.b
+      6 -> cpu.c
+    end
+  end
+
+  def combo(n, _) when n in 0..3, do: n
+  def combo(4, cpu), do: cpu.a
+  def combo(5, cpu), do: cpu.b
+  def combo(6, cpu), do: cpu.c
+end
+```
+
+```elixir
+import Day17
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+input
+|> parse()
+|> run_program()
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+{_a, b, c, p} =
+  input
+  |> parse()
+
+target = p |> Enum.join(",")
+
+# program divides a by 8 each "loop"
+# program is 16 ints
+# lower bound = 8^15 = 35_184_372_088_832
+# upper bound = 8^16 - 1 = 281_474_976_710_655
+# brute force is 246_290_604_621_823 program runs
+
+# turns out we can find each number output, then multiply a by 8 as we find each digit
+# until we match them all
+# run_program({3, b, c, p})
+# run_program({Bitwise.<<<(3, 3), b, c, p})
+
+p
+|> Enum.reduce(0, fn _, a ->
+  Stream.iterate(1, &(&1 + 1))
+  |> Enum.reduce_while(a * 8, fn _, a ->
+    out = run_program({a, b, c, p})
+
+    if String.ends_with?(target, out) do
+      {:halt, a}
+    else
+      {:cont, a + 1}
+    end
+  end)
+end)
+```
