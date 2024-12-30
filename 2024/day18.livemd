@@ -85,26 +85,32 @@ defmodule Day18 do
   end
 
   def find_path(pq, grid, goal, {w, h}, seen) do
-    {{:value, {pos, path, steps}}, pq} = PriorityQueue.pop(pq)
+    case PriorityQueue.pop(pq) do
+      {:empty, _} ->
+        nil
 
-    cond do
-      pos == goal ->
-        path
+      {{:value, {pos, path, steps}}, pq} ->
+        cond do
+          pos == goal ->
+            path
 
-      MapSet.member?(seen, pos) ->
-        find_path(pq, grid, goal, {w, h}, seen)
+          MapSet.member?(seen, pos) ->
+            find_path(pq, grid, goal, {w, h}, seen)
 
-      true ->
-        seen = MapSet.put(seen, pos)
+          true ->
+            seen = MapSet.put(seen, pos)
 
-        pq =
-          neighbours(pos)
-          |> Enum.filter(fn {x, y} -> x in 0..(w - 1) and y in 0..(h - 1) and Map.get(grid, {x, y}) != "#" end)
-          |> Enum.reduce(pq, fn p, pq ->
-            PriorityQueue.push(pq, {p, [p | path], steps + 1}, steps + 1)
-          end)
+            pq =
+              neighbours(pos)
+              |> Enum.filter(fn {x, y} ->
+                x in 0..(w - 1) and y in 0..(h - 1) and Map.get(grid, {x, y}) != "#"
+              end)
+              |> Enum.reduce(pq, fn p, pq ->
+                PriorityQueue.push(pq, {p, [p | path], steps + 1}, steps + 1)
+              end)
 
-        find_path(pq, grid, goal, {w, h}, seen)
+            find_path(pq, grid, goal, {w, h}, seen)
+        end
     end
   end
 end
@@ -150,5 +156,31 @@ end)
 <!-- livebook:{"reevaluate_automatically":true} -->
 
 ```elixir
+# s = 7
+# input = sample
 
+s = 71
+
+bytes = input |> parse()
+n = bytes |> Enum.count()
+
+Stream.iterate(1, &(&1 + 1))
+|> Enum.reduce_while({0, n}, fn _, {lo, hi} ->
+  if hi - lo == 1 do
+    {:halt, bytes |> Enum.at(hi - 1)}
+  else
+    mid = div(lo + hi, 2)
+    grid = bytes |> Enum.take(mid) |> Enum.map(&{&1, "#"}) |> Enum.into(Map.new())
+
+    case grid |> shortest_path(s) do
+      nil ->
+        {:cont, {lo, mid}}
+
+      _ ->
+        {:cont, {mid, hi}}
+    end
+  end
+end)
+|> Tuple.to_list()
+|> Enum.join(",")
 ```
