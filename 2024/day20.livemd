@@ -66,11 +66,46 @@ defmodule Day20 do
     if Map.get(grid, pos) == "E" do
       path
     else
-      next = neighbours(pos)
-        |> Enum.filter(& Map.get(grid, &1) in ["E", "."] && !MapSet.member?(seen, &1))
+      next =
+        neighbours(pos)
+        |> Enum.filter(&(Map.get(grid, &1) in ["E", "."] && !MapSet.member?(seen, &1)))
         |> hd()
+
       find_path(grid, next, seen, path)
     end
+  end
+
+  def best_cheats(input, t, cutoff) do
+    {grid, _w, _h} =
+      input
+      |> parse()
+
+    # there is only one path
+    path = find_path(grid)
+    n = (Enum.count(path) - 1)
+
+    # steps from a given cell to the end
+    # ie. we can cheat and know how many steps are left without taking them
+    memo =
+      path
+      |> Enum.with_index()
+      |> Enum.into(Map.new())
+
+    path
+    |> Enum.flat_map(fn start ->
+      start
+      |> neighbours(t)
+      |> Enum.filter(&Map.has_key?(memo, &1))
+      |> Enum.map(&{start, &1, manhattan_dist(start, &1)})
+    end)
+    |> Enum.map(fn {a, b, d} ->
+      t = n - Map.get(memo, a) + Map.get(memo, b) + d
+      n - t
+    end)
+    |> Enum.filter(&(&1 >= cutoff))
+    # |> Enum.frequencies()
+    # |> Enum.sort_by(fn {k, _v} -> k end)
+    |> Enum.count()
   end
 end
 ```
@@ -84,48 +119,8 @@ import Day20
 <!-- livebook:{"reevaluate_automatically":true} -->
 
 ```elixir
-{grid, w, h} =
-  input
-  |> parse()
-
-# there is only one path
-path = find_path(grid)
-n = (Enum.count(path) - 1) |> IO.inspect(label: "baseline")
-
-# steps from a given cell to the end
-# ie. we can cheat and know how many steps are left without taking them
-memo =
-  path
-  |> Enum.with_index()
-  |> Enum.into(Map.new())
-
-path
-|> Enum.flat_map(fn start ->
-  start
-  |> neighbours()
-  |> Enum.filter(&(Map.get(grid, &1) == "#"))
-  |> Enum.flat_map(fn wall ->
-    wall
-    |> neighbours()
-    |> Enum.filter(& &1 != start && Map.has_key?(memo, &1))
-  end)
-  |> Enum.map(& {start, &1})
-end)
-|> Enum.map(fn {a, b} ->
-  t = n - Map.get(memo, a) + Map.get(memo, b) + 2
-  n - t
-end)
-|> Enum.filter(& &1 >= 100)
-|> Enum.count()
-```
-
-<!-- livebook:{"reevaluate_automatically":true} -->
-
-```elixir
-grid
-|> draw_grid(w, h)
-|> code_block()
-|> Kino.Markdown.new()
+input
+|> best_cheats(2, 100)
 ```
 
 ## Part 2
@@ -133,34 +128,6 @@ grid
 <!-- livebook:{"reevaluate_automatically":true} -->
 
 ```elixir
-{grid, w, h} =
-  input
-  |> parse()
-
-# there is only one path
-path = find_path(grid)
-n = (Enum.count(path) - 1) |> IO.inspect(label: "baseline")
-
-# steps from a given cell to the end
-# ie. we can cheat and know how many steps are left without taking them
-memo =
-  path
-  |> Enum.with_index()
-  |> Enum.into(Map.new())
-
-path
-|> Enum.flat_map(fn start ->
-  start
-  |> neighbours(20)
-  |> Enum.filter(& Map.has_key?(memo, &1))
-  |> Enum.map(& {start, &1, manhattan_dist(start, &1)})
-end)
-|> Enum.map(fn {a, b, d} ->
-  t = n - Map.get(memo, a) + Map.get(memo, b) + d
-  n - t
-end)
-|> Enum.filter(& &1 >= 100)
-# |> Enum.frequencies()
-# |> Enum.sort_by(fn {k, _v} -> k end)
-|> Enum.count()
+input
+|> best_cheats(20, 100)
 ```
