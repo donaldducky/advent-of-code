@@ -1,0 +1,138 @@
+# Advent of Code 2024
+
+```elixir
+aoc_helpers_path =
+  __ENV__.file
+  |> String.split("#")
+  |> hd()
+  |> Path.dirname()
+  |> then(fn dir ->
+    [dir, "..", "aoc_helpers"]
+  end)
+  |> Path.join()
+
+Mix.install([
+  {:aoc_helpers, path: aoc_helpers_path}
+])
+```
+
+## Day 19
+
+```elixir
+import AocHelpers
+
+Kino.configure(inspect: [charlists: :as_lists])
+
+input = download_puzzle(2024, 19, cookie: System.get_env("AOC_COOKIE"))
+
+sample = """
+r, wr, b, g, bwu, rb, gb, br
+
+brwrr
+bggr
+gbbr
+rrbgbr
+ubwu
+bwurrg
+brgr
+bbrgwb
+"""
+
+Kino.nothing()
+```
+
+```elixir
+defmodule Day19 do
+  def parse(input) do
+    [towels, designs] =
+      input
+      |> blocks()
+
+    towels = towels |> String.split(", ")
+    designs = designs |> lines()
+
+    {towels, designs}
+  end
+
+  def can_make?(towels, design) do
+    towels
+    |> Enum.any?(&can_make?(towels, design, &1))
+  end
+
+  def can_make?(towels, design, towel) do
+    case design do
+      ^towel <> "" ->
+        true
+
+      ^towel <> rest ->
+        towels
+        |> Enum.any?(&can_make?(towels, rest, &1))
+
+      _ ->
+        false
+    end
+  end
+
+  def count_arrangements(towels, design, towel, cache) do
+    if Map.has_key?(cache, {design, towel}) do
+      {cache, Map.get(cache, {design, towel})}
+    else
+      {cache, n} =
+        case design do
+          ^towel <> "" ->
+            {cache, 1}
+
+          ^towel <> rest ->
+            towels
+            |> Enum.reduce({cache, 0}, fn towel, {cache, sum} ->
+              {cache, n} = count_arrangements(towels, rest, towel, cache)
+              {cache, sum + n}
+            end)
+
+          _ ->
+            {cache, 0}
+        end
+
+      cache = Map.put(cache, {design, towel}, n)
+      {cache, n}
+    end
+  end
+end
+```
+
+```elixir
+import Day19
+```
+
+## Part 1
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+{towels, designs} =
+  input
+  |> parse()
+
+designs
+|> Enum.count(& can_make?(towels, &1))
+```
+
+## Part 2
+
+<!-- livebook:{"reevaluate_automatically":true} -->
+
+```elixir
+{towels, designs} =
+  input
+  |> parse()
+
+designs
+|> Enum.reduce({Map.new(), 0}, fn design, {cache, sum} ->
+  towels
+  |> Enum.reduce({cache, sum}, fn towel, {cache, sum} ->
+    {cache, n} = count_arrangements(towels, design, towel, cache)
+    {cache, sum + n}
+  end)
+end)
+|> elem(1)
+```

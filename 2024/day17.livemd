@@ -49,7 +49,6 @@ defmodule Day17 do
   def parse(input) do
     [registers, program] =
       input
-      |> String.trim()
       |> blocks()
 
     [a, b, c] =

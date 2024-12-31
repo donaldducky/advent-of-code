@@ -12,7 +12,9 @@ defmodule AocHelpers do
   end
 
   def blocks(input) do
-    String.split(input, "\n\n", trim: true)
+    input
+    |> String.trim()
+    |> String.split("\n\n", trim: true)
   end
 
   def lines(input) do
